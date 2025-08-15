@@ -32,7 +32,8 @@ class LoadAnnotPickle(Transform):
     def __call__(self, input):
         with open(input, 'rb') as handle:
             data = pickle.load(handle)
-        data['index'] = [int(s) for s in re.findall(r'\d+', input)][-1]
+        # data['index'] = [int(s) for s in re.findall(r'\d+', input)][-1]
+        data['index'] = input.split("/")[-1].split(".")[0]
         return data
 
 
@@ -135,6 +136,19 @@ class ComputeImageRanged(MapTransform):
         for key in self.keys:
             d['image_min'] = torch.min(d[key])
             d['image_max'] = torch.max(d[key])
+        return d
+
+
+class ComputeImageMin(MapTransform):
+
+    def __init__(self, keys):
+        super().__init__(keys)
+
+    def __call__(self, data):
+        d = dict(data)
+        for key in self.keys:
+            d['image_min'] = torch.min(d[key])
+            # d['image_max'] = torch.max(d[key])
         return d
 
 
@@ -322,6 +336,7 @@ class ConvertTreeToTargets(Transform):
         self.num_prev_pos = num_prev_pos
         self.sub_vol_size = sub_vol_size
         self.class_dict = class_dict
+        self.pad_class = False  # BUG: Missing pad_class
 
     def extract_sub_tree(self, selected_node):
         root_position = np.asarray(selected_node.position).astype(int)
@@ -546,13 +561,16 @@ class LoadImageCropsAndTrees(Transform):
         return image, mask
 
     def __call__(self, input):
-        annot_tree = self.annots[input['sample_id']]['branches'][input['tree_id']]
+        annot_tree = self.annots[
+            input['sample_id']]['branches'][input['tree_id']]
         selected_node = find_name(annot_tree, input['node_id'])
         input_dict = {'index': input['sample_id'],
                       'tree_id': input['tree_id'],
                       'point_id': input['node_id'],
                       'point_type': input['point_type'],
-                      'dist': input['distance']}
+                      'dist': input['distance'],
+                      'networkx': self.annots[
+                          input['sample_id']]['networkx'][input['tree_id']]}
 
         data = self.get_annot_dict(selected_node, input_dict)
         image, mask = self.get_image_crops(input, selected_node)
@@ -571,6 +589,7 @@ class LoadImageCropsAndTreesd(MapTransform):
             masks = {}
         else:
             masks = None
+        self.norm_crop = False  # BUG: Missing norm_crop
 
         image_reader = LoadImage(image_only=True)
         annot_reader = LoadAnnotPickle()
@@ -582,7 +601,8 @@ class LoadImageCropsAndTreesd(MapTransform):
                  ThresholdIntensity(threshold=window_min, above=True, cval=window_min)])
 
         for path in paths:
-            index = [int(s) for s in re.findall(r'\d+', path[0])][-1]
+            # index = [int(s) for s in re.findall(r'\d+', path[0])][-1]
+            index = path[0].split("/")[-1].split(".")[0]
             if window_input:
                 image = window(image_reader(path[0]).unsqueeze(0))
             else:

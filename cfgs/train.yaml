@@ -24,16 +24,16 @@ custom_focal_weights_value: [0.33300486, 0.32274583, 0.33308958, 0.01115972]
 clip_max_norm: 0.1 # gradient clipping max norm
 
 # Dataset & Dataloader
-data_dir: data/synthetic
+data_dir: data/ASOCA
 cache_rate_train: 1.0 # percentage of cached data in total
 n_workers_train: 2
 batch_size: 4
 batch_size_val: 1
 mask: false
 determinism: true
-root_prob: 0.0
-bifur_prob: 0.0
-end_prob: 0.0
+root_prob: 0.1
+bifur_prob: 0.2
+end_prob: 0.2
 # SmartCacheDataset Params
 cache_num: 16
 replace_rate: 0.125
@@ -42,14 +42,14 @@ num_replace_workers: 2
 
 # Miscellaneous
 resume: ''
-output_dir: models/test
-device: cuda
+output_dir: models/test_ASOCA
+device: cuda:0
 seed: 37
 amp: true
 eval_only: false
 
 # Distributed training
-distributed: true
+distributed: false
 debug: false
 world_size: 1 # number of distributed processes
 dist_url: env:// # url used to set up distributed training
@@ -66,20 +66,22 @@ hidden_dim: 96
 unetr_dim: 24
 depths: [2, 2, 2, 2]
 num_heads: [3, 6, 12, 24]
-patch_size: 1
+patch_size: 2
 window_size: 7
+mem_vol_ds: 2  # Added according to Swin UNETR configurations
+take_in_between_level: false  # Added unused Swin UNETR configuration
 
 # LR scheduler
 lr: 0.0001
 min_lr_mltp:  0.1 # minimum learning rate multiplier
-epochs: 60000
+epochs: 2
 weight_decay: 0.0001
 
 # Validation
 volume_eval: true
 sub_volume_eval: true
-val_interval_sv: 100
-val_interval: 100
+val_interval_sv: 1
+val_interval: 1
 save_checkpoint: 10
 save_model_interval: 2000
 eval_limit_levels: true
@@ -89,14 +91,21 @@ max_nodes_per_level: 500
 test_sample: [] # list of 'sample_id-tree_id'
 
 # window input intensity values (clamp)
-window_input: false
-window_max: -500
-window_min: -1000
+window_input: true
+window_max: 500
+window_min: -100
 
 # Super Trajectory Training
 # Variable training trajectory length
-var_traj_train_len: false
-traj_train_len: 3
+var_traj_train_len: true
+traj_train_len: 6
 
 # Focal Cross Attention
-focus_vol_size: false
+focus_vol_size: 16  # According to transformer definition, should be int < sub_vol_size
+
+# Garbage collection
+gc_level: 1  # 1 or 2, see src/train_trx.py line 156
+
+# Miscellanous arguments missing in release code
+pad_class: false
+eval_perma_finish_end_bifur: true

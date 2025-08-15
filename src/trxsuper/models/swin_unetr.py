@@ -192,7 +192,7 @@ class SwinUNETR(nn.Module):
             out_channels=16 * feature_size,
             kernel_size=3,
             stride=1,
-            norm_name=norm_name if img_size[0] / 16 >= 2 else "",
+            norm_name=norm_name if img_size[0] / 16 > 2 else "",  # BUG: Instance norm on 1*1*1 feature
             res_block=True,
 
         )

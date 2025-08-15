@@ -1,3 +1,12 @@
+from monai.transforms import (
+    Transform,
+    MapTransform,
+    Randomizable,
+    Crop,
+    Pad,
+    Resize,)
+from monai.utils import convert_to_tensor, pytorch_after
+from bigtree import find_name, levelordergroup_iter, preorder_iter, find_full_path, Node
 import pickle
 import numpy as np
 import torch
@@ -9,16 +18,6 @@ from scipy.interpolate import CubicSpline, interp1d
 import os
 os.environ["BIGTREE_CONF_ASSERTIONS"] = ""
 
-from bigtree import find_name, levelordergroup_iter, preorder_iter, find_full_path, Node
-from monai.utils import convert_to_tensor, pytorch_after
-from monai.transforms import (
-    Transform,
-    MapTransform,
-    Randomizable,
-    Crop,
-    Pad,
-    Resize,)
-
 
 class LoadAnnotPickle(Transform):
     def __init__(self):
@@ -27,7 +26,8 @@ class LoadAnnotPickle(Transform):
     def __call__(self, input):
         with open(input, 'rb') as handle:
             data = pickle.load(handle)
-        data['index'] = [int(s) for s in re.findall(r'\d+', input)][-1]
+        # data['index'] = [int(s) for s in re.findall(r'\d+', input)][-1]
+        data['index'] = input.split("/")[-1].split(".")[0]
         return data
 
 
@@ -66,9 +66,12 @@ class CropAndPad(Transform):
         """
 
         assert roi_center is not None and roi_size is not None and img_size is not None
-        img_size_t = convert_to_tensor(data=img_size, dtype=torch.int16, wrap_sequence=True, device="cuda")
-        roi_center_t = convert_to_tensor(data=roi_center, dtype=torch.int16, wrap_sequence=True, device="cuda")
-        roi_size_t = convert_to_tensor(data=roi_size, dtype=torch.int16, wrap_sequence=True, device="cuda")
+        img_size_t = convert_to_tensor(
+            data=img_size, dtype=torch.int16, wrap_sequence=True, device="cuda")
+        roi_center_t = convert_to_tensor(
+            data=roi_center, dtype=torch.int16, wrap_sequence=True, device="cuda")
+        roi_size_t = convert_to_tensor(
+            data=roi_size, dtype=torch.int16, wrap_sequence=True, device="cuda")
         _zeros = torch.zeros_like(roi_center_t)
         half = (
             torch.divide(roi_size_t, 2, rounding_mode="floor")
@@ -82,8 +85,10 @@ class CropAndPad(Transform):
         roi_start_pad_t = torch.abs(torch.minimum(roi_start_t, _zeros))
         roi_end_pad_t = torch.maximum(roi_end_t - img_size_t, _zeros)
 
-        slices = [slice(int(s), int(e)) for s, e in zip(roi_start_clipped_t.tolist(), roi_end_clipped_t.tolist())]
-        padding = [(0, 0)] + [(int(s), int(e)) for s, e in zip(roi_start_pad_t.tolist(), roi_end_pad_t.tolist())]
+        slices = [slice(int(s), int(e)) for s, e in zip(
+            roi_start_clipped_t.tolist(), roi_end_clipped_t.tolist())]
+        padding = [(0, 0)] + [(int(s), int(e))
+                              for s, e in zip(roi_start_pad_t.tolist(), roi_end_pad_t.tolist())]
 
         return slices, padding
 
@@ -94,7 +99,7 @@ class CropAndPad(Transform):
         cropped_image = self.crop(image_data, crop_slices)
         cropped_image = self.pad(cropped_image, crop_padding, value=image_min)
 
-        return cropped_image
+        return cropped_image.tolist()  # BUG: Tensor conversion
 
     def __call__(self, data, position, image_min):
         # extract image sub volume around root point
@@ -114,9 +119,11 @@ class CropAndPadd(MapTransform):
             images = []
             for target in d['label']:
                 if key == 'image':
-                    images.append(self.transform(d[key], target['root_position'], d['image_min'].item()))
+                    images.append(self.transform(
+                        d[key], target['root_position'], d['image_min'].item()))
                 elif key == 'mask':
-                    images.append(self.transform(d[key], target['root_position'], 0.0))
+                    images.append(self.transform(
+                        d[key], target['root_position'], 0.0))
                 else:
                     raise NotImplementedError
             d[key] = images
@@ -199,6 +206,9 @@ class ExtRandomSubTree(Randomizable, Transform):
         endpt_index = path.index(endpt_id)
         prob = self.R.random()
 
+        if path[0] == "":
+            path.pop(0)  # BUG: Wrong first element
+
         if prob < self.bifur_prob:
             bifur_indices = [path.index(bifur) for bifur in bifur_ids]
             candidates = set()
@@ -206,17 +216,21 @@ class ExtRandomSubTree(Randomizable, Transform):
                 start = max(0, bifur_index - self.traj_train_num_pts + 1)
                 end = bifur_index + 1
                 candidates.update(range(start, end))
-            max_valid_index = endpt_index - ((self.traj_train_len - 1) * (self.seq_len - 1))
-            valid_candidates = [idx for idx in candidates if idx <= max_valid_index]
+            max_valid_index = endpt_index - \
+                (self.traj_train_len * (self.seq_len - 1))
+            valid_candidates = [
+                idx for idx in candidates if idx <= max_valid_index]
             if len(valid_candidates) == 0:
                 return self.randomize(data)
             point_id = path[self.R.choice(valid_candidates)]
             point_type = 'bifurcation'
 
         elif prob < (self.bifur_prob + self.end_prob):
-            max_valid_index = endpt_index - ((self.traj_train_len - 1) * (self.seq_len - 1))
+            max_valid_index = endpt_index - \
+                (self.traj_train_len * (self.seq_len - 1))
             min_valid_index = max(0, endpt_index - self.traj_train_num_pts + 1)
-            valid_candidates = list(range(min_valid_index, max_valid_index + 1))
+            valid_candidates = list(
+                range(min_valid_index, max_valid_index + 1))
             if len(valid_candidates) == 0:
                 return self.randomize(data)
             point_id = path[self.R.choice(valid_candidates)]
@@ -224,8 +238,10 @@ class ExtRandomSubTree(Randomizable, Transform):
 
         elif prob < (self.bifur_prob + self.end_prob + self.root_prob):
             min_valid_index = 0
-            max_valid_index = min(self.seq_len - 1, endpt_index - ((self.traj_train_len - 1) * (self.seq_len - 1)))
-            valid_candidates = list(range(min_valid_index, max_valid_index + 1))
+            max_valid_index = min(
+                self.seq_len - 1, endpt_index - (self.traj_train_len * (self.seq_len - 1)))
+            valid_candidates = list(
+                range(min_valid_index, max_valid_index + 1))
             if len(valid_candidates) == 0:
                 return self.randomize(data)
             point_id = path[self.R.choice(valid_candidates)]
@@ -234,8 +250,10 @@ class ExtRandomSubTree(Randomizable, Transform):
         else:
             endpt_index = path.index(endpt_id)
             min_valid_index = 0
-            max_valid_index = endpt_index - ((self.traj_train_len - 1) * (self.seq_len - 1))
-            valid_candidates = list(range(min_valid_index, max_valid_index + 1))
+            max_valid_index = endpt_index - \
+                (self.traj_train_len * (self.seq_len - 1))
+            valid_candidates = list(
+                range(min_valid_index, max_valid_index + 1))
             if len(valid_candidates) == 0:
                 return self.randomize(data)
             point_id = path[self.R.choice(valid_candidates)]
@@ -277,11 +295,14 @@ class ExtRandomSubTree(Randomizable, Transform):
 
     def create_subtree_with_past_tr(self, selected_node, selected_path, max_root_buffer_nodes):
         selected_node_index = selected_path.index(selected_node.name)
-        past_traj_start_index = max(selected_node_index - (self.num_prev_pos - 1), 0)
+        past_traj_start_index = max(
+            selected_node_index - (self.num_prev_pos - 1), 0)
         num_prev_pos = selected_node_index - past_traj_start_index + 1
-        buffer_start_index = max(past_traj_start_index - max_root_buffer_nodes, 0)
+        buffer_start_index = max(
+            past_traj_start_index - max_root_buffer_nodes, 0)
         num_root_buffer_nodes = past_traj_start_index - buffer_start_index
-        buffer_start_node = find_name(selected_node.root, selected_path[buffer_start_index])
+        buffer_start_node = find_name(
+            selected_node.root, selected_path[buffer_start_index])
 
         root_node = Node(buffer_start_node.name,
                          position=buffer_start_node.position,
@@ -299,13 +320,15 @@ class ExtRandomSubTree(Randomizable, Transform):
 
             if i == num_root_buffer_nodes + 1:
                 if new_level:
-                    past_tr_head_node = [node for node in new_level if node.name in selected_path][0]
+                    past_tr_head_node = [
+                        node for node in new_level if node.name in selected_path][0]
                 else:
                     past_tr_head_node = root_node
 
             if i == num_root_buffer_nodes + num_prev_pos:
                 if new_level:
-                    selected_node = [node for node in new_level if node.name in selected_path][0]
+                    selected_node = [
+                        node for node in new_level if node.name in selected_path][0]
                 else:
                     selected_node = root_node
 
@@ -319,10 +342,10 @@ class ExtRandomSubTree(Randomizable, Transform):
             for node in level:
                 parent_node = find_name(root_node, node.parent.name)
                 new_level.append(Node(node.name,
-                     position=node.position,
-                     radius=node.radius,
-                     parent=parent_node,
-                     label=node.label))
+                                      position=node.position,
+                                      radius=node.radius,
+                                      parent=parent_node,
+                                      label=node.label))
 
                 if len(node.children) == 0:
                     end_nodes.append(node)
@@ -390,13 +413,18 @@ class DivideSubTree(Transform):
 
     def get_starting_points(self, data):
         selected_node_list = [data['selected_node']]
-        point_index = data['selected_path'].index(data['selected_node'].node_name)
+        point_index = data['selected_path'].index(
+            data['selected_node'].node_name)
 
-        for i in range(1, self.traj_train_len):
-            next_point_id = data['selected_path'][point_index + (self.seq_len - 1) * i]
-            next_node = find_name(data['selected_node'], next_point_id)
-            assert next_node is not None, "Selected node not found!"
-            selected_node_list.append(next_node)
+        try:  # BUG: On occasions, raise indexError
+            for i in range(1, self.traj_train_len):
+                next_point_id = data['selected_path'][point_index +
+                                                      (self.seq_len - 1) * i]
+                next_node = find_name(data['selected_node'], next_point_id)
+                assert next_node is not None, "Selected node not found!"
+                selected_node_list.append(next_node)
+        except Exception:
+            breakpoint()
 
         return selected_node_list
 
@@ -458,7 +486,8 @@ class DivideSubTree(Transform):
         selected_node_list = self.get_starting_points(data)
         selected_nodes, past_traj_head_nodes = [], []
         for selected_node_orig in selected_node_list:
-            _, past_traj_num = self.get_past_traj_start(selected_node_orig, self.num_prev_pos)
+            _, past_traj_num = self.get_past_traj_start(
+                selected_node_orig, self.num_prev_pos)
             selected_node, past_traj_head_node = self.create_subtree_with_past_tr(selected_node_orig,
                                                                                   past_traj_num, self.seq_len)
             selected_nodes.append(selected_node)
@@ -473,7 +502,8 @@ class DivideSubTree(Transform):
 class DivideSubTreed(MapTransform):
     def __init__(self, keys, seq_len, num_prev_pos, var_traj_train_len, traj_train_len):
         super().__init__(keys)
-        self.transform = DivideSubTree(seq_len, num_prev_pos, var_traj_train_len, traj_train_len)
+        self.transform = DivideSubTree(
+            seq_len, num_prev_pos, var_traj_train_len, traj_train_len)
 
     def __call__(self, data):
         d = dict(data)
@@ -496,12 +526,14 @@ class AddRandMicroTrajNoise(Randomizable, Transform):
     def update_tree_positions(data, all_node_paths, offsets):
         for i, path in enumerate(all_node_paths):
             if sum(offsets[i]):
-                path_node = find_full_path(data['past_traj_head_node'].root, path)
+                path_node = find_full_path(
+                    data['past_traj_head_node'].root, path)
                 new_position = np.array(path_node.position) + offsets[i]
                 path_node.position = new_position.tolist()
 
     def __call__(self, data):
-        all_node_paths = [node.path_name for node in preorder_iter(data['past_traj_head_node'].root)]
+        all_node_paths = [node.path_name for node in preorder_iter(
+            data['past_traj_head_node'].root)]
         offsets = self.randomize(len(all_node_paths))
         self.update_tree_positions(data, all_node_paths, offsets)
 
@@ -595,7 +627,8 @@ class AddRandBifurTrajNoise(Randomizable, Transform):
             cdf_b = laplace.cdf(b, loc=loc, scale=scale)
 
             uniform_sample = random_state.uniform(cdf_a, cdf_b)
-            truncated_sample = laplace.ppf(uniform_sample, loc=loc, scale=scale)
+            truncated_sample = laplace.ppf(
+                uniform_sample, loc=loc, scale=scale)
 
             samples.append(truncated_sample)
 
@@ -618,7 +651,8 @@ class AddRandBifurTrajNoise(Randomizable, Transform):
         points = np.array(points)
         radii = np.array(radii)
         distances = np.zeros(len(points))
-        distances[1:] = np.cumsum(np.linalg.norm(np.diff(points, axis=0), axis=1))
+        distances[1:] = np.cumsum(np.linalg.norm(
+            np.diff(points, axis=0), axis=1))
 
         interp_x = interp1d(distances, points[:, 0], kind='linear')
         interp_y = interp1d(distances, points[:, 1], kind='linear')
@@ -633,7 +667,8 @@ class AddRandBifurTrajNoise(Randomizable, Transform):
             n_points = max(round(total_length / step) + 1, 3)
         assert n_points is not None, "Either n_points or points_dist should be provided"
         new_distances = np.linspace(start_dist, end_dist, n_points)
-        new_points = np.vstack((interp_x(new_distances), interp_y(new_distances), interp_z(new_distances))).T
+        new_points = np.vstack((interp_x(new_distances), interp_y(
+            new_distances), interp_z(new_distances))).T
         new_radii = interp_r(new_distances)
 
         return new_points, new_radii
@@ -644,7 +679,8 @@ class AddRandBifurTrajNoise(Randomizable, Transform):
         n_points = len(points)
 
         distances = np.zeros(n_points)
-        distances[1:] = np.cumsum(np.linalg.norm(np.diff(points, axis=0), axis=1))
+        distances[1:] = np.cumsum(np.linalg.norm(
+            np.diff(points, axis=0), axis=1))
 
         spline_x = CubicSpline(distances, points[:, 0])
         spline_y = CubicSpline(distances, points[:, 1])
@@ -660,13 +696,16 @@ class AddRandBifurTrajNoise(Randomizable, Transform):
         assert n_points is not None, "Either n_points or points_dist should be provided"
         new_distances = np.linspace(start_dist, end_dist, n_points)
 
-        in_between_points = np.vstack((spline_x(new_distances), spline_y(new_distances), spline_z(new_distances))).T
+        in_between_points = np.vstack(
+            (spline_x(new_distances), spline_y(new_distances), spline_z(new_distances))).T
         in_between_radii = spline_r(new_distances)
         num_points_diff = len(in_between_points) - 2
         dists = np.linalg.norm(np.diff(in_between_points, axis=0), axis=1)
         if any(dists > max_dist) or any(dists < 0.5):
-            new_points = np.vstack((points[:start_idx], in_between_points, points[end_idx + 1:]))
-            new_radii = np.hstack((radii[:start_idx], in_between_radii, radii[end_idx + 1:]))
+            new_points = np.vstack(
+                (points[:start_idx], in_between_points, points[end_idx + 1:]))
+            new_radii = np.hstack(
+                (radii[:start_idx], in_between_radii, radii[end_idx + 1:]))
             in_between_points, in_between_radii = self.linear_interpolate(new_points,
                                                                           new_radii, start_idx, end_idx + num_points_diff, 1.0)
 
@@ -684,11 +723,13 @@ class AddRandBifurTrajNoise(Randomizable, Transform):
         end_idx = len(positions) - len(positions_after)
 
         if len(positions_before) < 2 or len(positions_after) < 2:
-            in_between_positions, in_between_radii = self.linear_interpolate(positions, radii, start_idx, end_idx, 1.0)
+            in_between_positions, in_between_radii = self.linear_interpolate(
+                positions, radii, start_idx, end_idx, 1.0)
         else:
             in_between_positions, in_between_radii = self.smooth_interpolate(positions, radii, start_idx, end_idx,
                                                                              1.0, max_dist)
-        in_between_positions, in_between_radii = in_between_positions[1:-1], in_between_radii[1:-1]
+        in_between_positions, in_between_radii = in_between_positions[1:-
+                                                                      1], in_between_radii[1:-1]
 
         return in_between_positions, in_between_radii
 
@@ -833,7 +874,8 @@ class AddRandBifurTrajNoise(Randomizable, Transform):
                     target_nodes.append(main_traj_move_node)
 
             for source_node, target_node in zip(source_nodes, target_nodes):
-                bifur_dist = np.linalg.norm(np.array(source_node.position) - np.array(target_node.position))
+                bifur_dist = np.linalg.norm(
+                    np.array(source_node.position) - np.array(target_node.position))
                 if bifur_dist > max_dist:
                     in_between_positions, in_between_radii = self.compute_inbetween_points(source_node,
                                                                                            target_node, positions_before, positions_after,
@@ -857,7 +899,8 @@ class AddRandBifurTrajNoise(Randomizable, Transform):
 
             bif_node.label = 1
             new_bif_node.label = 2
-            full_path = find_name(data['selected_node'].root, path[-1]).path_name
+            full_path = find_name(
+                data['selected_node'].root, path[-1]).path_name
             data['selected_path'] = full_path[1:].split("/")
 
     def rename_node_names(self, data, selected_path_len):
@@ -882,7 +925,8 @@ class AddRandBifurTrajNoise(Randomizable, Transform):
         if selected_node_level < 1:
             selected_path_len = selected_path_len + selected_node_level - 1
             selected_node_level = 1
-        past_traj_head_node_level = selected_node_level - (data['num_prev_pos'] - 1)
+        past_traj_head_node_level = selected_node_level - \
+            (data['num_prev_pos'] - 1)
         if past_traj_head_node_level < 1:
             past_traj_head_node_level = 1
             data['num_prev_pos'] = selected_node_level - 1
@@ -901,7 +945,7 @@ class AddRandBifurTrajNoise(Randomizable, Transform):
             if i == selected_node_level:
                 if new_level:
                     data['selected_node'] = [node for node in new_level
-                                                   if new_node_id_to_old[node.name] in data['selected_path']][0]
+                                             if new_node_id_to_old[node.name] in data['selected_path']][0]
                 else:
                     data['selected_node'] = new_root_node
 
@@ -918,20 +962,22 @@ class AddRandBifurTrajNoise(Randomizable, Transform):
                     parent_pt = int(parent_name.split("-")[1])
                     node_name = str(parent_br) + "-" + str(parent_pt + 1)
                 new_level.append(Node(node_name,
-                     parent=parent_node,
-                     position=node.position,
-                     radius=node.radius,
-                     label=node.label))
+                                      parent=parent_node,
+                                      position=node.position,
+                                      radius=node.radius,
+                                      label=node.label))
                 old_node_id_to_new[node.name] = node_name
                 new_node_id_to_old[node_name] = node.name
 
         if selected_path_len_decreased:
             selected_path_len += 1
 
-        old_selected_node_index = data['selected_path'].index(new_node_id_to_old[data['selected_node'].name])
+        old_selected_node_index = data['selected_path'].index(
+            new_node_id_to_old[data['selected_node'].name])
         old_end_node_index = data['selected_path'].index(end_node.name)
         cropped_old_path = data['selected_path'][old_selected_node_index: old_end_node_index + 1]
-        data['selected_path'] = [old_node_id_to_new[node_name] for node_name in cropped_old_path]
+        data['selected_path'] = [old_node_id_to_new[node_name]
+                                 for node_name in cropped_old_path]
         data['point_id'] = data['selected_node'].name
 
     def __call__(self, data, image_size):
@@ -947,7 +993,7 @@ class AddRandBifurTrajNoise(Randomizable, Transform):
                 print(f"Level {i}: {[node.name for node in level]}")
 
         backup_past_traj_head_node = find_full_path(backup_selected_node,
-                                                                                      data['past_traj_head_node'].path_name)
+                                                    data['past_traj_head_node'].path_name)
         bif_nodes = [bif_node for bif_node in preorder_iter(data['selected_node'])
                      if len(bif_node.children) > 1 and bif_node.name in data['selected_path']]
         selected_path_len = len(data['selected_path'])
@@ -979,7 +1025,8 @@ class AddRandBifurTrajNoise(Randomizable, Transform):
 class AddRandBifurTrajNoised(Randomizable, MapTransform):
     def __init__(self, keys, num_prev_pos, seq_len, traj_train_len):
         super(Randomizable, self).__init__(keys)
-        self.transform = AddRandBifurTrajNoise(num_prev_pos, seq_len, traj_train_len)
+        self.transform = AddRandBifurTrajNoise(
+            num_prev_pos, seq_len, traj_train_len)
 
     def set_random_state(self, seed=None, state=None):
         self.transform.set_random_state(seed, state)
@@ -1031,19 +1078,23 @@ class ConvertTreeToTargets(Transform):
         ordered_branches = []
         for level, curr_level_nodes in enumerate(levelordergroup_iter(selected_node)):
             if level < self.seq_len:
-                new_branches, curr_level_branches = self.find_branches(curr_level_nodes, prev_level_branches)
+                new_branches, curr_level_branches = self.find_branches(
+                    curr_level_nodes, prev_level_branches)
                 if len(new_branches):
                     ordered_branches += new_branches
 
                 grouped_node_seq = self.init_prop_lists(grouped_node_seq)
                 for index_br, branch in enumerate(ordered_branches):
-                    curr_level_br_index = self.find_element_index(branch, curr_level_branches)
+                    curr_level_br_index = self.find_element_index(
+                        branch, curr_level_branches)
                     if curr_level_br_index == -1:
-                        grouped_node_seq = self.pad_finished_branch(grouped_node_seq, branch, index_br, level)
+                        grouped_node_seq = self.pad_finished_branch(
+                            grouped_node_seq, branch, index_br, level)
                     else:
                         grouped_node_seq = self.append_node_info(grouped_node_seq, curr_level_nodes[curr_level_br_index],
                                                                  root_position, level)
-                prev_level_branches = [name.split("-")[0] for name in grouped_node_seq['node_ids'][level]]
+                prev_level_branches = [name.split(
+                    "-")[0] for name in grouped_node_seq['node_ids'][level]]
             else:
                 level -= 1
                 break
@@ -1055,7 +1106,8 @@ class ConvertTreeToTargets(Transform):
         curr_level_branches = []
         for node in curr_level_nodes:
             curr_level_branches.append(node.node_name.split("-")[0])
-        new_branches = sorted(list(set(curr_level_branches) - set(prev_level_branches)))
+        new_branches = sorted(
+            list(set(curr_level_branches) - set(prev_level_branches)))
 
         return new_branches, curr_level_branches
 
@@ -1083,7 +1135,8 @@ class ConvertTreeToTargets(Transform):
 
         if level:
             parent_id = node.parent.node_name if node.parent is not None else -1
-            parent_idxs = self.find_element_index(parent_id, grouped_node_seq['node_ids'][level - 1])
+            parent_idxs = self.find_element_index(
+                parent_id, grouped_node_seq['node_ids'][level - 1])
         else:
             parent_id = -1
             parent_idxs = -1
@@ -1126,12 +1179,15 @@ class ConvertTreeToTargets(Transform):
 
                 level_positions = grouped_node_seq['rel_positions'][-1]
                 node_label = self.class_dict['background']
-                labels = (np.zeros(np.array(grouped_node_seq['labels'][-1]).shape, dtype=int) + node_label).tolist()
-                level_radii = np.zeros(np.array(grouped_node_seq['radii'][-1]).shape).tolist()
+                labels = (np.zeros(np.array(
+                    grouped_node_seq['labels'][-1]).shape, dtype=int) + node_label).tolist()
+                level_radii = np.zeros(
+                    np.array(grouped_node_seq['radii'][-1]).shape).tolist()
 
                 grouped_node_seq['node_ids'].append(level_names)
                 grouped_node_seq['node_parents'].append(prev_level_names)
-                grouped_node_seq['parent_idxs'].append(grouped_node_seq['parent_idxs'][-1])
+                grouped_node_seq['parent_idxs'].append(
+                    grouped_node_seq['parent_idxs'][-1])
                 grouped_node_seq['rel_positions'].append(level_positions)
                 grouped_node_seq['radii'].append(level_radii)
                 grouped_node_seq['labels'].append(labels)
@@ -1185,7 +1241,8 @@ class ConvertTreeToTargets(Transform):
 class ConvertTreeToTargetsd(MapTransform):
     def __init__(self, keys, seq_len, num_prev_pos, sub_vol_size, class_dict):
         super().__init__(keys)
-        self.transform = ConvertTreeToTargets(seq_len, num_prev_pos, sub_vol_size, class_dict)
+        self.transform = ConvertTreeToTargets(
+            seq_len, num_prev_pos, sub_vol_size, class_dict)
 
     def __call__(self, data):
         d = dict(data)

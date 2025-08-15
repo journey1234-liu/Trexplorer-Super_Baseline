@@ -15,19 +15,12 @@ import numpy as np
 from monai.data import Dataset, CacheDataset, SmartCacheDataset, partition_dataset
 from src.trackformer.util.misc import is_main_process, get_world_size, get_rank, init_distributed_mode, get_sha
 from monai.data import DataLoader, ThreadDataLoader
-from src.trackformer.datasets.transforms import (LoadAnnotPickled,
-                                                          ExtRandomPointd,
-                                                          CropAndPadd,
-                                                          RandomAugOneAATd,
-                                                          ExtRandomSubTreed,
-                                                          AddRandTrajNoised,
-                                                          AddRandPastTrajNoised,
-                                                          AddRandMicroTrajNoised,
-                                                          ConvertTreeToTargetsd,
-                                                          ComputeImageRanged,
-                                                          AddHierarchicalLabelsd,
-                                                          LoadImageCropsAndTreesd)
-from src.trackformer.datasets.visualize_data import convert_lists_to_trees, plot_centerlines, plot_annot_images, trim_extra_leaves
+from src.trxsuper.datasets.transforms import (LoadAnnotPickled,
+                                              CropAndPadd,
+                                              ExtRandomSubTreed,
+                                              ConvertTreeToTargetsd,
+                                              ComputeImageRanged,
+                                              LoadImageCropsAndTreesd)
 from monai.transforms import (
     LoadImaged,
     EnsureChannelFirstd,
@@ -38,7 +31,6 @@ from monai.transforms import (
     NormalizeIntensityd,
     ThresholdIntensityd)
 
-from src.trackformer.datasets.visualize_data import VispyPlotter
 from bigtree import levelordergroup_iter
 
 sys.setrecursionlimit(10000)
@@ -61,9 +53,12 @@ def load_datalist(dataset_dir, data_key):
     else:
         raise NotImplementedError
 
-    image_paths = sorted(glob.glob(os.path.join(images_dir, "*.nii.gz")))
+    # NOTE: Adapted for NRRD images
+    image_paths = sorted(glob.glob(os.path.join(
+        images_dir, "*.nii.gz")) + glob.glob(os.path.join(images_dir, "*.nrrd")))
     annot_paths = sorted(glob.glob(os.path.join(annots_dir, "*.pickle")))
-    mask_paths = sorted(glob.glob(os.path.join(masks_dir, "*.nii.gz")))
+    mask_paths = sorted(glob.glob(os.path.join(
+        masks_dir, "*.nii.gz")) + glob.glob(os.path.join(masks_dir, "*.nrrd")))
 
     datalist = []
     for (image, label, mask) in zip(image_paths, annot_paths, mask_paths):
@@ -86,7 +81,6 @@ def build_training_transforms(cfg):
     transforms += [NormalizeIntensityd(keys=['image']),
                    ComputeImageRanged(keys=["image"]),
                    LoadAnnotPickled(keys=["label"])]
-
 
     if cfg.mask:
         transforms += [LoadImaged(keys=["mask"], image_only=True),
@@ -115,9 +109,12 @@ def build_validation_sv_transforms(cfg):
     annots_dir = os.path.join(cfg.data_dir, 'annots_val_sub_vol')
     images_dir = os.path.join(cfg.data_dir, 'images_val_sub_vol')
     masks_dir = os.path.join(cfg.data_dir, 'masks_val_sub_vol')
-    image_paths = sorted(glob.glob(os.path.join(images_dir, "*.nii.gz")))
+    # NOTE:Adapted to NRRD format
+    image_paths = sorted(glob.glob(os.path.join(
+        images_dir, "*.nii.gz")) + glob.glob(os.path.join(images_dir, "*.nrrd")))
     annot_paths = sorted(glob.glob(os.path.join(annots_dir, "*.pickle")))
-    mask_paths = sorted(glob.glob(os.path.join(masks_dir, "*.nii.gz")))
+    mask_paths = sorted(glob.glob(os.path.join(
+        masks_dir, "*.nii.gz")) + glob.glob(os.path.join(masks_dir, "*.nrrd")))
     paths = list(zip(image_paths, annot_paths, mask_paths))
     transforms = [LoadImageCropsAndTreesd(["label"], cfg.seq_len, cfg.num_prev_pos, cfg.sub_vol_size,
                                           cfg.class_dict, cfg.mask, paths, cfg.window_input, cfg.window_min, cfg.window_max)]
@@ -144,7 +141,8 @@ def build_validation_transforms(cfg):
 
     if cfg.mask:
         transforms += [LoadImaged(keys=["mask"], image_only=True),
-                       EnsureChannelFirstd(keys=["mask"], channel_dim="no_channel"),
+                       EnsureChannelFirstd(
+                           keys=["mask"], channel_dim="no_channel"),
                        ToTensord(keys=["mask"], track_meta=False)]
 
     if is_main_process():
@@ -155,7 +153,7 @@ def build_validation_transforms(cfg):
 
 
 def build_training_datasets_dist(cfg, split, train_transform):
-    files = load_datalist(cfg, split)
+    files = load_datalist(cfg.data_dir, split)  # BUG: No .data_dir added
     if is_main_process():
         print(f"Number of files in full {split} dataset: {len(files)}")
 
@@ -163,7 +161,8 @@ def build_training_datasets_dist(cfg, split, train_transform):
                                   num_partitions=get_world_size(),
                                   shuffle=False,
                                   even_divisible=True)[get_rank()]
-    print(f"Number of files in training dataset partition for rank {get_rank()}:{len(partition)}", force=True)
+    print(
+        f"Number of files in training dataset partition for rank {get_rank()}:{len(partition)}", force=True)
 
     dataset_train = SmartCacheDataset(
         data=partition,
@@ -175,12 +174,13 @@ def build_training_datasets_dist(cfg, split, train_transform):
         copy_cache=False,
     )
 
-    print(f"Number of files in training dataset for rank {get_rank()}:{len(dataset_train)}", force=True)
+    print(
+        f"Number of files in training dataset for rank {get_rank()}:{len(dataset_train)}", force=True)
     return dataset_train
 
 
 def build_training_datasets(cfg, split, transforms):
-    files = load_datalist(cfg, split)
+    files = load_datalist(cfg.data_dir, split)  # BUG: No .data_dir added
     print("Number of files in full training dataset: {}".format(len(files)))
 
     dataset = SmartCacheDataset(
@@ -197,7 +197,7 @@ def build_training_datasets(cfg, split, transforms):
 
 
 def build_validation_datasets_dist(cfg, split, transforms):
-    files = load_datalist(cfg, split)
+    files = load_datalist(cfg.data_dir, split)  # BUG: No .data_dir added
     if is_main_process():
         print(f"Number of files in full {split} dataset: {len(files)}")
 
@@ -205,7 +205,8 @@ def build_validation_datasets_dist(cfg, split, transforms):
                                   num_partitions=get_world_size(),
                                   shuffle=False,
                                   even_divisible=True)[get_rank()]
-    print(f"Number of files in {split} dataset partition for rank {get_rank()}:{len(partition)}", force=True)
+    print(
+        f"Number of files in {split} dataset partition for rank {get_rank()}:{len(partition)}", force=True)
 
     dataset_train = CacheDataset(
         data=partition,
@@ -215,13 +216,14 @@ def build_validation_datasets_dist(cfg, split, transforms):
         copy_cache=False,
     )
 
-    print(f"Number of files in {split} dataset for rank {get_rank()}:{len(dataset_train)}", force=True)
+    print(
+        f"Number of files in {split} dataset for rank {get_rank()}:{len(dataset_train)}", force=True)
 
     return dataset_train
 
 
 def build_validation_datasets(cfg, split, transforms):
-    files = load_datalist(cfg, split)
+    files = load_datalist(cfg.data_dir, split)  # BUG: No .data_dir added
     print(f"Number of files in full {split} dataset: {len(files)}")
 
     dataset = CacheDataset(
@@ -313,7 +315,8 @@ def val_collate_fn(batch):
     else:
         masks_batch = None
 
-    batch_output = {"image": images_batch, "image_min": images_min_batch, "label": targets, "mask": masks_batch}
+    batch_output = {"image": images_batch, "image_min": images_min_batch,
+                    "label": targets, "mask": masks_batch}
 
     return batch_output
 
@@ -331,13 +334,18 @@ def compute_label_fracs_train_allocated_only(args, mask_only=False):
     for epoch in range(args.epochs):
         print("Epoch: ", epoch)
         for i, batch in enumerate(dataloader):
-            inputs, labels, past_tr, masks = (batch["image"], batch["label"], batch["past_tr"], batch['mask'])
+            inputs, labels, past_tr, masks = (
+                batch["image"], batch["label"], batch["past_tr"], batch['mask'])
             for sample in labels:
                 for step in range(1, args.seq_len):
-                    curr_bifur = len([x for x in sample['labels'][step] if x == args.class_dict['bifurcation']])
-                    curr_all = len([x for x in sample['labels'][step] if x != args.class_dict['background']])
-                    curr_end = len([x for x in sample['labels'][step] if x == args.class_dict['end']])
-                    count_inter += len([x for x in sample['labels'][step] if x == args.class_dict['intermediate']])
+                    curr_bifur = len(
+                        [x for x in sample['labels'][step] if x == args.class_dict['bifurcation']])
+                    curr_all = len(
+                        [x for x in sample['labels'][step] if x != args.class_dict['background']])
+                    curr_end = len([x for x in sample['labels']
+                                   [step] if x == args.class_dict['end']])
+                    count_inter += len([x for x in sample['labels']
+                                       [step] if x == args.class_dict['intermediate']])
                     count_all += curr_all
                     count_end += curr_end
                     count_bifur += curr_bifur
@@ -351,7 +359,8 @@ def compute_label_fracs_train_allocated_only(args, mask_only=False):
 
                     # New background queries from bifurcation
                     if bifur_detected:
-                        count_bg += (args.num_bifur_queries*bifur_detected - (curr_all - prev_inter))
+                        count_bg += (args.num_bifur_queries *
+                                     bifur_detected - (curr_all - prev_inter))
                         bifur_detected = 0
 
                     # New background queries from branches ending (one per ending)

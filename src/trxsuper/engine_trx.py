@@ -43,21 +43,23 @@ class TrexplorerSuper:
         return curr_step_targets
 
     def train_one_epoch_vtl(self, model: torch.nn.Module, criterion: torch.nn.Module,
-                             data_loader: Iterable, optimizer: torch.optim.Optimizer, lr_scheduler,
-                             scaler: torch.cuda.amp.GradScaler):
+                            data_loader: Iterable, optimizer: torch.optim.Optimizer, lr_scheduler,
+                            scaler: torch.cuda.amp.GradScaler):
         """
         Training function for one epoch
         """
         model.train()
         criterion.train()
         skip_lr_step = False
-        epoch_metrics = {'scaled_losses': 0, 'unscaled_losses': 0, 'total_loss': 0, }
+        epoch_metrics = {'scaled_losses': 0,
+                         'unscaled_losses': 0, 'total_loss': 0, }
         for i, batch in enumerate(data_loader):
             for j, sub_batch in enumerate(batch):
                 node = 'selected_node' if j == 0 else 'pair_node'
                 losses = []
                 batch_metrics = {'scaled_losses': [], 'unscaled_losses': []}
-                sample_imgs, sample_past_trs, targets = (sub_batch["image"], sub_batch["past_tr"], sub_batch["label"])
+                sample_imgs, sample_past_trs, targets = (
+                    sub_batch["image"], sub_batch["past_tr"], sub_batch["label"])
 
                 if sample_imgs.device != self.device:
                     sample_imgs = sample_imgs.to(self.device)
@@ -72,12 +74,17 @@ class TrexplorerSuper:
 
                     # find the targets in the selected node that are used as a starting point for the pair node
                     for sample_idx in range(len(targets)):
-                        prev_sv_last_step_node_ids = batch[j-1]["label"][sample_idx]['node_ids'][-1]
+                        prev_sv_last_step_node_ids = batch[j -
+                                                           1]["label"][sample_idx]['node_ids'][-1]
                         curr_sv_first_step_node_id = targets[sample_idx]['node_ids'][0][0]
-                        target_idx = prev_sv_last_step_node_ids.index(curr_sv_first_step_node_id)
-                        target_idx_in_indices = (indices[sample_idx][1] == target_idx).nonzero().item()
-                        query_idx = indices[sample_idx][0][target_idx_in_indices].item()
-                        new_indices.append([torch.tensor([query_idx]), torch.tensor([0])])
+                        target_idx = prev_sv_last_step_node_ids.index(
+                            curr_sv_first_step_node_id)
+                        target_idx_in_indices = (
+                            indices[sample_idx][1] == target_idx).nonzero().item()
+                        query_idx = indices[sample_idx][0][target_idx_in_indices].item(
+                        )
+                        new_indices.append(
+                            [torch.tensor([query_idx]), torch.tensor([0])])
 
                     prev_step_info['first_step'] = True
                     prev_step_info['memory'] = None
@@ -87,9 +94,12 @@ class TrexplorerSuper:
                     prev_step_info['old_indices'] = None
                     prev_step_info['node_type'] = node
                     prev_step_info['indices'] = new_indices
-                    prev_step_info['hs_without_norm'] = prev_step_info['hs_without_norm'].detach()
-                    prev_step_targets = self.get_single_step_targets(targets, 0)
-                    prev_step_targets = [utils.nested_dict_to_device(t, self.device) for t in prev_step_targets]
+                    prev_step_info['hs_without_norm'] = prev_step_info['hs_without_norm'].detach(
+                    )
+                    prev_step_targets = self.get_single_step_targets(
+                        targets, 0)
+                    prev_step_targets = [utils.nested_dict_to_device(
+                        t, self.device) for t in prev_step_targets]
                 else:
                     prev_step_info = {"first_step": True,
                                       "indices": [],
@@ -100,11 +110,14 @@ class TrexplorerSuper:
 
                 # predicting for the number of steps in our sequence
                 for step in range(1, self.args.seq_len):
-                    curr_step_targets = self.get_single_step_targets(targets, step)
-                    curr_step_targets = [utils.nested_dict_to_device(t, self.device) for t in curr_step_targets]
+                    curr_step_targets = self.get_single_step_targets(
+                        targets, step)
+                    curr_step_targets = [utils.nested_dict_to_device(
+                        t, self.device) for t in curr_step_targets]
 
                     with torch.cuda.amp.autocast(enabled=self.args.amp):
-                        norm_step = torch.tensor((step - 1) / (self.args.seq_len - 1)).unsqueeze(0).unsqueeze(0).to(self.device)
+                        norm_step = torch.tensor(
+                            (step - 1) / (self.args.seq_len - 1)).unsqueeze(0).unsqueeze(0).to(self.device)
                         outputs, prev_step_info = model(sample_imgs, sample_past_trs, prev_step_info, norm_step,
                                                         curr_step_targets, prev_step_targets)
 
@@ -112,33 +125,42 @@ class TrexplorerSuper:
                         loss_dict, prev_step_info['indices'] = criterion(outputs, curr_step_targets, prev_step_targets,
                                                                          prev_step_info)
                         weight_dict = criterion.weight_dict
-                        losses.append(sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict))
+                        losses.append(
+                            sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict))
 
                     # reduce losses over all GPUs for logging purposes
                     loss_dict_reduced = utils.reduce_dict(loss_dict)
                     loss_dict_reduced_unscaled = {
                         f'{k}_unscaled': v for k, v in loss_dict_reduced.items() if k in weight_dict}
-                    losses_reduced_unscaled = sum(loss_dict_reduced_unscaled.values())
+                    losses_reduced_unscaled = sum(
+                        loss_dict_reduced_unscaled.values())
                     loss_dict_reduced_scaled = {
                         k: v * weight_dict[k] for k, v in loss_dict_reduced.items() if k in weight_dict}
-                    losses_reduced_scaled = sum(loss_dict_reduced_scaled.values())
+                    losses_reduced_scaled = sum(
+                        loss_dict_reduced_scaled.values())
 
-                    batch_metrics['scaled_losses'].append(losses_reduced_scaled.item())
-                    batch_metrics['unscaled_losses'].append(losses_reduced_unscaled.item())
+                    batch_metrics['scaled_losses'].append(
+                        losses_reduced_scaled.item())
+                    batch_metrics['unscaled_losses'].append(
+                        losses_reduced_unscaled.item())
                     for item in loss_dict_reduced:
                         if item in batch_metrics:
-                            batch_metrics[item].append(loss_dict_reduced[item].item())
+                            batch_metrics[item].append(
+                                loss_dict_reduced[item].item())
                         else:
-                            batch_metrics.update({item: [loss_dict_reduced[item].item()]})
+                            batch_metrics.update(
+                                {item: [loss_dict_reduced[item].item()]})
 
                     prev_step_targets = curr_step_targets
 
                 for item in batch_metrics:
                     if item in epoch_metrics:
                         # normalize by number of steps to get the average loss of a query/object per step
-                        epoch_metrics[item] += sum(batch_metrics[item]) / (self.args.seq_len - 1)
+                        epoch_metrics[item] += sum(batch_metrics[item]) / \
+                            (self.args.seq_len - 1)
                     else:
-                        epoch_metrics.update({item: sum(batch_metrics[item]) / (self.args.seq_len - 1)})
+                        epoch_metrics.update(
+                            {item: sum(batch_metrics[item]) / (self.args.seq_len - 1)})
 
                 # sum the losses for all steps
                 total_losses = sum(losses)
@@ -151,7 +173,8 @@ class TrexplorerSuper:
                     scaler.scale(total_losses).backward()
                     if self.args.clip_max_norm > 0:
                         scaler.unscale_(optimizer)
-                        torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.clip_max_norm)
+                        torch.nn.utils.clip_grad_norm_(
+                            model.parameters(), self.args.clip_max_norm)
                     scaler.step(optimizer)
                     scale = scaler.get_scale()
                     scaler.update()
@@ -160,7 +183,8 @@ class TrexplorerSuper:
                     optimizer.zero_grad()
                     total_losses.backward()
                     if self.args.clip_max_norm > 0:
-                        torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.clip_max_norm)
+                        torch.nn.utils.clip_grad_norm_(
+                            model.parameters(), self.args.clip_max_norm)
                     optimizer.step()
 
             if skip_lr_step:
@@ -196,7 +220,8 @@ class TrexplorerSuper:
         Create a Node for the root point
         """
         in_degrees = dict(target_tree.in_degree())
-        root_node_id = [node for node, in_degree in in_degrees.items() if in_degree == 0][0]
+        root_node_id = [node for node,
+                        in_degree in in_degrees.items() if in_degree == 0][0]
         root_node_info = self.get_node(root_node_id, target_tree)
         root_out_degree = target_tree.out_degree(root_node_id)
 
@@ -204,7 +229,7 @@ class TrexplorerSuper:
         rel_pos = np.array(root_pos) - np.array(root_pos).astype(int)
         radius = root_node_info['radius']
         pred_tree.add_node(root_node_id, position=root_pos,
-                           rel_pos=rel_pos, radius=radius, level=0, depth=0, 
+                           rel_pos=rel_pos, radius=radius, level=0, depth=0,
                            query_index=-1, original_query_index=-1, score=1.0,
                            label=root_out_degree)
 
@@ -251,8 +276,10 @@ class TrexplorerSuper:
                            hidden_state=point_hidden_state,
                            )
 
-        parent_pos = torch.tensor(step_node_info['position']).to(query_positions.device)
-        child_pos = torch.tensor(self.get_node(next_node, pred_tree)['position']).to(query_positions.device)
+        parent_pos = torch.tensor(step_node_info['position']).to(
+            query_positions.device)
+        child_pos = torch.tensor(self.get_node(next_node, pred_tree)[
+                                 'position']).to(query_positions.device)
         length = torch.norm(child_pos - parent_pos).item()
         pred_tree.add_edge(step_node, next_node, length=length)
 
@@ -267,7 +294,8 @@ class TrexplorerSuper:
         new_branch_node_list = []
         # Add new branches to the tree whose parents are in the list parent_indices_filter
         for query_index in new_branches:
-            query_index_t = torch.tensor(query_index).to(query_positions.device)
+            query_index_t = torch.tensor(
+                query_index).to(query_positions.device)
             rel_pos = query_positions.index_select(1, query_index_t).squeeze()
             radius = query_radii.index_select(1, query_index_t).squeeze()
             label = query_classes.index_select(1, query_index_t).squeeze()
@@ -284,13 +312,16 @@ class TrexplorerSuper:
                                query_index=query_index,
                                original_query_index=query_index,
                                level=level,
-                               depth=self.get_node(parent_node, pred_tree)['depth'] + 1,
+                               depth=self.get_node(parent_node, pred_tree)[
+                                   'depth'] + 1,
                                step=step,
                                label=label.item(),
                                hidden_state=point_hidden_state[query_index] if point_hidden_state is not None else None,)
             pred_tree.add_edge(parent_node, new_node)
-            parent_pos = torch.tensor(self.get_node(parent_node, pred_tree)['position']).to(query_positions.device)
-            child_pos = torch.tensor(self.get_node(new_node, pred_tree)['position']).to(query_positions.device)
+            parent_pos = torch.tensor(self.get_node(parent_node, pred_tree)[
+                                      'position']).to(query_positions.device)
+            child_pos = torch.tensor(self.get_node(new_node, pred_tree)[
+                                     'position']).to(query_positions.device)
             length = torch.norm(child_pos - parent_pos).item()
             pred_tree.add_edge(parent_node, new_node, length=length)
             new_branch_node_list.append(new_node)
@@ -300,8 +331,10 @@ class TrexplorerSuper:
     def get_updated_indices_nx(self, indices, curr_step, pred_tree):
         if len(indices) == 0 or sum(len(lst) for lst in indices) == 0:
             branch_indices = [int(node.split("-")[0]) for node in curr_step]
-            query_indices = [self.get_node(node, pred_tree)['query_index'] for node in curr_step]
-            indices = [[torch.tensor(query_indices), torch.tensor(branch_indices)]]
+            query_indices = [self.get_node(node, pred_tree)[
+                'query_index'] for node in curr_step]
+            indices = [
+                [torch.tensor(query_indices), torch.tensor(branch_indices)]]
         else:
             indices_list = [indices[0][0].tolist(), indices[0][1].tolist()]
             query_indices = [self.get_node(node_i, pred_tree)['query_index'] for node_i in curr_step
@@ -329,7 +362,8 @@ class TrexplorerSuper:
     def check_finished(self, targets, tree_id, curr_level, level):
         break_loop = False
         if level >= self.args.max_inference_levels and self.args.eval_limit_levels:
-            self.logger.info(f"Max inference levels reached! Sample: {str(targets[0]['index'])}, Tree ID: {tree_id:d}")
+            self.logger.info(
+                f"Max inference levels reached! Sample: {str(targets[0]['index'])}, Tree ID: {tree_id:d}")
             break_loop = True
 
         if len(curr_level) > self.args.max_nodes_per_level and self.args.eval_limit_nodes_per_level:
@@ -339,7 +373,8 @@ class TrexplorerSuper:
         return break_loop
 
     def log_progress_level(self, curr_level, level):
-        self.logger.info(f"Level: {level} \t | \t Nodes: {len(curr_level)} \t ")
+        self.logger.info(
+            f"Level: {level} \t | \t Nodes: {len(curr_level)} \t ")
 
     @staticmethod
     def get_node(node_id, tree):
@@ -355,7 +390,8 @@ class TrexplorerSuper:
 
         for i in range(self.args.num_prev_pos):
             node_info_list = []
-            node_position = (np.asarray(parent['position']) - root_position).astype(float)
+            node_position = (np.asarray(
+                parent['position']) - root_position).astype(float)
             node_position /= (self.args.focus_vol_size // 2)
             node_info_list.append(node_position)
             node_radius = np.asarray(parent['radius']).reshape(1)
@@ -370,7 +406,8 @@ class TrexplorerSuper:
 
         past_traj_label_np = np.asarray(past_traj_label)
 
-        num_missing_points = self.args.num_prev_pos - past_traj_label_np.shape[0]
+        num_missing_points = self.args.num_prev_pos - \
+            past_traj_label_np.shape[0]
         if num_missing_points:
             last_point_info = past_traj_label_np[-1:]
             padding_info = np.tile(last_point_info, (num_missing_points, 1))
@@ -390,7 +427,8 @@ class TrexplorerSuper:
             image_size = torch.tensor(samples.squeeze().size())
             node_pos = torch.tensor(self.get_node(node, pred_tree)['position'])
             if torch.logical_and(torch.all(node_pos < (image_size - 1)), torch.all(node_pos >= 0)):
-                sub_vol = crop_pad(samples.squeeze(dim=0), node_pos.tolist(), samples_min.item())
+                sub_vol = crop_pad(samples.squeeze(
+                    dim=0), node_pos.tolist(), samples_min.item())
                 sub_vol = sub_vol.unsqueeze(0)
             else:
                 to_remove.append(node)
@@ -400,7 +438,8 @@ class TrexplorerSuper:
             if len(sub_vol.shape) == 6:
                 sub_vol = sub_vol.squeeze(0)
 
-            past_traj_pos = self.generate_past_trajectory_pp_nx(pred_tree, node)
+            past_traj_pos = self.generate_past_trajectory_pp_nx(
+                pred_tree, node)
             past_traj_pos = past_traj_pos.to(self.device).unsqueeze(0)
             sub_vol_batch.append(sub_vol)
             past_traj_pos_batch.append(past_traj_pos)
@@ -425,7 +464,8 @@ class TrexplorerSuper:
     @staticmethod
     def update_perma_finished_branches_bifur(node_perma_finished_branches,
                                              perma_end_classes, query_classes, selected_queries):
-        perma_end_mask = torch.isin(query_classes, torch.tensor(perma_end_classes).to(query_classes.device))
+        perma_end_mask = torch.isin(query_classes, torch.tensor(
+            perma_end_classes).to(query_classes.device))
         perma_end_query_idxs = torch.nonzero(perma_end_mask, as_tuple=True)[1]
         perma_finished_queries = [query_idx for query_idx in selected_queries
                                   if query_idx in perma_end_query_idxs.tolist()]
@@ -452,7 +492,8 @@ class TrexplorerSuper:
                     if not len(old_sample_idxs):
                         index_mapping.append(None)
                     else:
-                        index_mapping.append({old_idx: new_idx for old_idx, new_idx in zip(old_sample_idxs[0].tolist(), new_sample_idx[0].tolist())})
+                        index_mapping.append({old_idx: new_idx for old_idx, new_idx in zip(
+                            old_sample_idxs[0].tolist(), new_sample_idx[0].tolist())})
                 return index_mapping
 
     def map_old_to_new_indices(self, pred_tree, curr_step_batch, node_finished_branches_batch,
@@ -479,7 +520,7 @@ class TrexplorerSuper:
                                                                          for node in node_perma_finished_branches_batch[sample_id]]
 
     def map_old_to_new_indices_sv(self, pred_tree_batch, curr_step_batch, node_finished_branches_batch,
-                               finished_branches_end_nodes_batch, node_perma_finished_branches_batch, prev_step_info):
+                                  finished_branches_end_nodes_batch, node_perma_finished_branches_batch, prev_step_info):
         """
         Map new indices to old indices for sub-volume evaluation
         """
@@ -513,15 +554,18 @@ class TrexplorerSuper:
         for bifur_id in bifur_dict:
             allocated_bifur_queries = bifur_dict[bifur_id][1]
             if len(allocated_bifur_queries):
-                unused_buffer_queries = [idx for idx in allocated_bifur_queries if idx not in new_branches]
-                used_bifur_queries = [idx for idx in allocated_bifur_queries if idx not in unused_buffer_queries]
+                unused_buffer_queries = [
+                    idx for idx in allocated_bifur_queries if idx not in new_branches]
+                used_bifur_queries = [
+                    idx for idx in allocated_bifur_queries if idx not in unused_buffer_queries]
                 parent_query_index = bifur_dict[bifur_id][0]
                 all_parents = curr_step + finished_branches_end_nodes
                 parent_node = [step_node for step_node in all_parents if
                                self.get_node(step_node, pred_tree)['query_index'] == parent_query_index][0]
                 new_branch_node_list, global_branch_id[0] = self.get_new_next_nodes_ar2_nx(used_bifur_queries,
                                                                                            parent_node, pred_tree, query_positions, query_radii,
-                                                                                           query_classes, curr_node_root_pos, global_branch_id[0],
+                                                                                           query_classes, curr_node_root_pos, global_branch_id[
+                                                                                               0],
                                                                                            level, step, point_hidden_state)
 
                 next_step += new_branch_node_list
@@ -538,7 +582,8 @@ class TrexplorerSuper:
         """
         new_branch_node_list, global_branch_id[0] = self.get_new_next_nodes_ar2_nx(selected_queries,
                                                                                    curr_step[0], pred_tree, query_positions, query_radii, query_classes,
-                                                                                   curr_node_root_pos, global_branch_id[0], level,
+                                                                                   curr_node_root_pos, global_branch_id[
+                                                                                       0], level,
                                                                                    step, point_hidden_state)
         next_step += new_branch_node_list
         finished_branches = [-1]
@@ -557,11 +602,12 @@ class TrexplorerSuper:
             step_node = curr_step[node_index]
 
             # get the node for the next step of this continuing branch
-            next_step_node, perma_end_query = self.get_cont_next_node_ar2_nx(query_index, step_node,
-                                                                             pred_tree, curr_node_root_pos, query_positions, query_radii,
-                                                                             query_classes, level, step,
-                                                                             point_hidden_state[query_index] if point_hidden_state is not None else None)
+            next_step_node = self.get_cont_next_node_ar2_nx(query_index, step_node,
+                                                            pred_tree, curr_node_root_pos, query_positions, query_radii,
+                                                            query_classes, level, step,
+                                                            point_hidden_state[query_index] if point_hidden_state is not None else None)
 
+            perma_end_query = None  # BUG: Too many values to unpack
             # add the next step node's position to the global list of positions
             if next_step_node is not None:
                 next_step.append(next_step_node)
@@ -578,9 +624,10 @@ class TrexplorerSuper:
         """
         Add continuing branches points for the first step
         """
-        next_step_node, perma_end_query = self.get_cont_next_node_ar2_nx(selected_queries[0],
-                                                                         curr_step[0], pred_tree, curr_node_root_pos, query_positions,
-                                                                         query_radii, query_classes, level, step, point_hidden_state)
+        next_step_node = self.get_cont_next_node_ar2_nx(selected_queries[0],
+                                                        curr_step[0], pred_tree, curr_node_root_pos, query_positions,
+                                                        query_radii, query_classes, level, step, point_hidden_state)
+        perma_end_query = None  # BUG: Too many return values to unpack
         if next_step_node is not None:
             next_step.append(next_step_node)
         self.update_perma_finished_branches(node_perma_finished_branches, perma_end_query,
@@ -592,10 +639,13 @@ class TrexplorerSuper:
         Initialize the required lists
         """
         used_queries = indices[0][0].tolist() if len(indices[0]) else []
-        previous_selected_queries = [self.get_node(node_i, pred_tree)['query_index'] for node_i in curr_step]
+        previous_selected_queries = [self.get_node(
+            node_i, pred_tree)['query_index'] for node_i in curr_step]
         new_branches = (list(set(selected_queries) - set(used_queries)))
-        continuing_branches = [x for x in selected_queries if x in used_queries]
-        finished_branches = list(set(previous_selected_queries) - set(selected_queries))
+        continuing_branches = [
+            x for x in selected_queries if x in used_queries]
+        finished_branches = list(
+            set(previous_selected_queries) - set(selected_queries))
         node_finished_branches += finished_branches
         finished_branches_end_nodes += [end_node for end_node in curr_step
                                         if self.get_node(end_node, pred_tree)['query_index'] in finished_branches]
@@ -611,15 +661,19 @@ class TrexplorerSuper:
         all_preds = []
         all_targets = []
         elapsed_time = []
-        crop_pad = CropAndPad(self.args.sub_vol_size, self.args.zoom_levels, 'area')
+        # BUG: No zoom_levels config
+        crop_pad = CropAndPad(self.args.sub_vol_size)
 
-        classes_to_filter = ['background', 'pad'] if self.args.pad_class else ['background']
+        classes_to_filter = ['background',
+                             'pad'] if self.args.pad_class else ['background']
         # classes that will permanently end tracking for a branch with point of these classes
-        perma_end_classes = [self.args.class_dict['bifurcation'], self.args.class_dict['end']]
+        perma_end_classes = [
+            self.args.class_dict['bifurcation'], self.args.class_dict['end']]
 
         # Only batch_size 1 supported for now
         for i, batch in enumerate(data_loader):
-            samples, samples_min, targets, masks = (batch["image"], batch["image_min"], batch["label"], batch["mask"])
+            samples, samples_min, targets, masks = (
+                batch["image"], batch["image_min"], batch["label"], batch["mask"])
             if self.args.eval_only:
                 self.logger.info(f'Sample: {targets[0]["index"]:d}')
             for tree_id in range(len(targets[0]['networkx'])):
@@ -631,7 +685,8 @@ class TrexplorerSuper:
                 level = 0
                 target_tree = targets[0]['networkx'][tree_id]
                 pred_tree = nx.DiGraph()
-                root_node = self.get_global_pred_root_node_nx(pred_tree, target_tree)
+                root_node = self.get_global_pred_root_node_nx(
+                    pred_tree, target_tree)
                 curr_level = [root_node['id']]
                 while not finished:
                     if self.check_finished(targets, tree_id, curr_level, level):
@@ -641,36 +696,51 @@ class TrexplorerSuper:
 
                     next_level = []
                     for level_node_i in range(0, len(curr_level), self.args.batch_size_per_sample):
-                        node_batch = curr_level[level_node_i: level_node_i + self.args.batch_size_per_sample]
+                        node_batch = curr_level[level_node_i: level_node_i +
+                                                self.args.batch_size_per_sample]
                         sub_vol_batch, past_traj_pos_batch = self.get_sub_vol_and_past_tr(node_batch, samples,
                                                                                           pred_tree, samples_min, crop_pad)
                         if not len(sub_vol_batch):
                             continue
 
+                        # BUG: Fix node id problems
+                        starting_node_ids = []
+                        for node in node_batch:
+                            if isinstance(node, str):
+                                starting_node_ids.append(int(node.split("-")[0]))
+                            else:
+                                starting_node_ids.append(int(node))
                         # prev_step_info
                         prev_step_info = {"first_step": True,
                                           "out": None,
                                           "bifur_list": None,
-                                          "starting_node_id": [int(node.split("-")[0]) for node in node_batch],
+                                          "starting_node_id": starting_node_ids,
                                           "global_id": global_branch_id,
                                           "node_type": "selected_node",
                                           "hidden_state_list": []}
 
                         # get hidden states of prev_level_nodes
                         if node_batch[0] != root_node['id']:
-                            prev_level_hs = torch.zeros([len(node_batch), 1, self.args.hidden_dim], device=self.device)
+                            prev_level_hs = torch.zeros(
+                                [len(node_batch), 1, self.args.hidden_dim], device=self.device)
                             for curr_node_idx, curr_node in enumerate(node_batch):
-                                curr_node_info = self.get_node(curr_node, pred_tree)
-                                prev_level_hs[curr_node_idx, 0, :] = curr_node_info['hidden_state']
+                                curr_node_info = self.get_node(
+                                    curr_node, pred_tree)
+                                prev_level_hs[curr_node_idx, 0,
+                                              :] = curr_node_info['hidden_state']
                             prev_step_info['hs_without_norm'] = prev_level_hs
                             prev_step_info['node_type'] = 'pair_node'
                             prev_step_info['labels'] = [curr_node_info['label'] for curr_node_info in
                                                         [self.get_node(curr_node, pred_tree) for curr_node in node_batch]]
-                            query_indices_batch = [torch.tensor([0]) for _ in node_batch]
-                            query_targets_batch = [torch.tensor([int(curr_node.split('-')[0])]) for curr_node in node_batch]
-                            prev_step_info['indices'] = [list(t) for t in zip(query_indices_batch, query_targets_batch)]
+                            query_indices_batch = [
+                                torch.tensor([0]) for _ in node_batch]
+                            query_targets_batch = [torch.tensor(
+                                [int(curr_node.split('-')[0])]) for curr_node in node_batch]
+                            prev_step_info['indices'] = [list(t) for t in zip(
+                                query_indices_batch, query_targets_batch)]
                         else:
-                            prev_step_info['indices'] = [[] for _ in range(len(node_batch))]
+                            prev_step_info['indices'] = [[]
+                                                         for _ in range(len(node_batch))]
 
                         finish_flag = [False for i in range(len(node_batch))]
                         sub_vol = torch.cat(sub_vol_batch, dim=0)
@@ -678,18 +748,25 @@ class TrexplorerSuper:
                         curr_step_batch = [[node] for node in node_batch]
                         curr_node_root_pos_batch = [torch.tensor(self.get_node(node, pred_tree)['position'],
                                                                  dtype=int).to(self.args.device) for node in node_batch]
-                        node_finished_branches_batch = [[] for i in range(len(node_batch))]
-                        finished_branches_end_nodes_batch = [[] for i in range(len(node_batch))]
-                        node_perma_finished_branches_batch = [[] for i in range(len(node_batch))]
+                        node_finished_branches_batch = [
+                            [] for i in range(len(node_batch))]
+                        finished_branches_end_nodes_batch = [
+                            [] for i in range(len(node_batch))]
+                        node_perma_finished_branches_batch = [
+                            [] for i in range(len(node_batch))]
 
                         for step in range(1, self.args.seq_len):
-                            num_all_nodes = sum([len(sublist) for sublist in curr_step_batch])
+                            num_all_nodes = sum([len(sublist)
+                                                for sublist in curr_step_batch])
                             if not num_all_nodes:
                                 break
-                            next_step_batch = [[] for i in range(len(node_batch))]
+                            next_step_batch = [[]
+                                               for i in range(len(node_batch))]
 
-                            norm_step = torch.tensor((step - 1) / (self.args.seq_len - 1)).unsqueeze(0).unsqueeze(0).to(self.args.device)
-                            outputs, prev_step_info = model(sub_vol, past_traj_pos, prev_step_info, norm_step)
+                            norm_step = torch.tensor(
+                                (step - 1) / (self.args.seq_len - 1)).unsqueeze(0).unsqueeze(0).to(self.args.device)
+                            outputs, prev_step_info = model(
+                                sub_vol, past_traj_pos, prev_step_info, norm_step)
                             self.map_old_to_new_indices(pred_tree,
                                                         curr_step_batch,
                                                         node_finished_branches_batch,
@@ -697,14 +774,17 @@ class TrexplorerSuper:
                                                         node_perma_finished_branches_batch,
                                                         prev_step_info)
 
-                            query_classes_batch, query_radii_batch, query_positions_batch = self.get_classes_radii_positions(outputs)
+                            query_classes_batch, query_radii_batch, query_positions_batch = self.get_classes_radii_positions(
+                                outputs)
                             filter_class_ids = torch.tensor([self.args.class_dict[key]
                                                              for key in classes_to_filter]).to(query_classes_batch.device)
-                            query_classes_batch_filtered = torch.logical_not(torch.isin(query_classes_batch, filter_class_ids))
+                            query_classes_batch_filtered = torch.logical_not(
+                                torch.isin(query_classes_batch, filter_class_ids))
                             selected_queries_batch = [query_classes_batch_filtered[i].nonzero().flatten().tolist()
                                                       for i in range(query_classes_batch_filtered.shape[0])]
 
-                            allocated_queries = torch.nonzero(~outputs['query_mask'], as_tuple=True)
+                            allocated_queries = torch.nonzero(
+                                ~outputs['query_mask'], as_tuple=True)
                             for sq_i, selected_queries in enumerate(selected_queries_batch):
                                 sample_allocated_queries = allocated_queries[1][allocated_queries[0] == sq_i]
                                 selected_queries_batch[sq_i] = [query for query in selected_queries
@@ -725,7 +805,8 @@ class TrexplorerSuper:
                                 curr_node_root_pos = curr_node_root_pos_batch[sq_i]
                                 node_finished_branches = node_finished_branches_batch[sq_i]
                                 finished_branches_end_nodes = finished_branches_end_nodes_batch[sq_i]
-                                node_perma_finished_branches = node_perma_finished_branches_batch[sq_i]
+                                node_perma_finished_branches = node_perma_finished_branches_batch[
+                                    sq_i]
                                 query_radii = query_radii_batch[sq_i:sq_i + 1]
                                 query_positions = query_positions_batch[sq_i:sq_i + 1]
                                 query_classes = query_classes_batch[sq_i:sq_i + 1]
@@ -734,7 +815,8 @@ class TrexplorerSuper:
 
                                 if previous_selected_queries == [-1]:
                                     if len(selected_queries) == 1:
-                                        point_hidden_state = prev_step_info['hs_without_norm'][sq_i, selected_queries[0], :]
+                                        point_hidden_state = prev_step_info['hs_without_norm'][sq_i,
+                                                                                               selected_queries[0], :]
                                         self.add_cont_branch_point_beg(selected_queries, curr_step, pred_tree, curr_node_root_pos,
                                                                        query_positions, query_radii, level, step, next_step,
                                                                        node_perma_finished_branches, query_classes, perma_end_classes,
@@ -766,18 +848,21 @@ class TrexplorerSuper:
                                                                            query_classes, selected_queries, point_hidden_state)
 
                                 curr_step = next_step
-                                indices = self.get_updated_indices_nx(indices, curr_step, pred_tree)
+                                indices = self.get_updated_indices_nx(
+                                    indices, curr_step, pred_tree)
                                 prev_step_info['indices'][sq_i] = indices[0]
                                 curr_step_batch[sq_i] = curr_step
 
-                        next_step = [element for sublist in curr_step_batch for element in sublist]
+                        next_step = [
+                            element for sublist in curr_step_batch for element in sublist]
                         next_level += next_step
 
                     for node in next_level:
                         node_info = self.get_node(node, pred_tree)
                         node_pos = node_info['position']
                         node_info['query_index'] = -1
-                        node_info['rel_pos'] = np.array(node_pos) - np.array(node_pos).astype(int)
+                        node_info['rel_pos'] = np.array(
+                            node_pos) - np.array(node_pos).astype(int)
 
                     curr_level = next_level
                     if len(curr_level) == 0:
@@ -798,10 +883,13 @@ class TrexplorerSuper:
     @torch.no_grad()
     def evaluate_sinsam(self, model, sample_id):
         model.eval()
-        crop_pad = CropAndPad(self.args.sub_vol_size, self.args.zoom_levels, 'area')
+        # BUG: No zoom_level config
+        crop_pad = CropAndPad(self.args.sub_vol_size)
 
-        classes_to_filter = ['background', 'pad'] if self.args.pad_class else ['background']
-        perma_end_classes = [self.args.class_dict['bifurcation'], self.args.class_dict['end']]
+        classes_to_filter = ['background',
+                             'pad'] if self.args.pad_class else ['background']
+        perma_end_classes = [
+            self.args.class_dict['bifurcation'], self.args.class_dict['end']]
 
         annot_dir = os.path.join(self.args.data_dir, 'annots_test')
         mask_dir = os.path.join(self.args.data_dir, 'masks_test')
@@ -843,7 +931,8 @@ class TrexplorerSuper:
             level = 0
             target_tree = targets[0]['networkx'][tree_id]
             pred_tree = nx.DiGraph()
-            root_node = self.get_global_pred_root_node_nx(pred_tree, target_tree)
+            root_node = self.get_global_pred_root_node_nx(
+                pred_tree, target_tree)
             curr_level = [root_node['id']]
             while not finished:
                 if self.check_finished(targets, tree_id, curr_level, level):
@@ -853,7 +942,8 @@ class TrexplorerSuper:
 
                 next_level = []
                 for level_node_i in range(0, len(curr_level), self.args.batch_size_per_sample):
-                    node_batch = curr_level[level_node_i: level_node_i + self.args.batch_size_per_sample]
+                    node_batch = curr_level[level_node_i: level_node_i +
+                                            self.args.batch_size_per_sample]
                     sub_vol_batch, past_traj_pos_batch = self.get_sub_vol_and_past_tr(node_batch, samples,
                                                                                       pred_tree, samples_min, crop_pad)
                     if not len(sub_vol_batch):
@@ -868,19 +958,26 @@ class TrexplorerSuper:
                                       "hidden_state_list": []}
 
                     if node_batch[0] != root_node['id']:
-                        prev_level_hs = torch.zeros([len(node_batch), 1, self.args.hidden_dim], device=self.device)
+                        prev_level_hs = torch.zeros(
+                            [len(node_batch), 1, self.args.hidden_dim], device=self.device)
                         for curr_node_idx, curr_node in enumerate(node_batch):
-                            curr_node_info = self.get_node(curr_node, pred_tree)
-                            prev_level_hs[curr_node_idx, 0, :] = curr_node_info['hidden_state']
+                            curr_node_info = self.get_node(
+                                curr_node, pred_tree)
+                            prev_level_hs[curr_node_idx, 0,
+                                          :] = curr_node_info['hidden_state']
                         prev_step_info['hs_without_norm'] = prev_level_hs
                         prev_step_info['node_type'] = 'pair_node'
                         prev_step_info['labels'] = [curr_node_info['label'] for curr_node_info in
                                                     [self.get_node(curr_node, pred_tree) for curr_node in node_batch]]
-                        query_indices_batch = [torch.tensor([0]) for _ in node_batch]
-                        query_targets_batch = [torch.tensor([int(curr_node.split('-')[0])]) for curr_node in node_batch]
-                        prev_step_info['indices'] = [list(t) for t in zip(query_indices_batch, query_targets_batch)]
+                        query_indices_batch = [
+                            torch.tensor([0]) for _ in node_batch]
+                        query_targets_batch = [torch.tensor(
+                            [int(curr_node.split('-')[0])]) for curr_node in node_batch]
+                        prev_step_info['indices'] = [list(t) for t in zip(
+                            query_indices_batch, query_targets_batch)]
                     else:
-                        prev_step_info['indices'] = [[] for _ in range(len(node_batch))]
+                        prev_step_info['indices'] = [[]
+                                                     for _ in range(len(node_batch))]
 
                     finish_flag = [False for i in range(len(node_batch))]
                     sub_vol = torch.cat(sub_vol_batch, dim=0)
@@ -888,18 +985,24 @@ class TrexplorerSuper:
                     curr_step_batch = [[node] for node in node_batch]
                     curr_node_root_pos_batch = [torch.tensor(self.get_node(node, pred_tree)['position'],
                                                              dtype=int).to(self.args.device) for node in node_batch]
-                    node_finished_branches_batch = [[] for i in range(len(node_batch))]
-                    finished_branches_end_nodes_batch = [[] for i in range(len(node_batch))]
-                    node_perma_finished_branches_batch = [[] for i in range(len(node_batch))]
+                    node_finished_branches_batch = [[]
+                                                    for i in range(len(node_batch))]
+                    finished_branches_end_nodes_batch = [
+                        [] for i in range(len(node_batch))]
+                    node_perma_finished_branches_batch = [
+                        [] for i in range(len(node_batch))]
 
                     for step in range(1, self.args.seq_len):
-                        num_all_nodes = sum([len(sublist) for sublist in curr_step_batch])
+                        num_all_nodes = sum([len(sublist)
+                                            for sublist in curr_step_batch])
                         if not num_all_nodes:
                             break
                         next_step_batch = [[] for i in range(len(node_batch))]
 
-                        norm_step = torch.tensor((step - 1) / (self.args.seq_len - 1)).unsqueeze(0).unsqueeze(0).to(self.args.device)
-                        outputs, prev_step_info = model(sub_vol, past_traj_pos, prev_step_info, norm_step)
+                        norm_step = torch.tensor(
+                            (step - 1) / (self.args.seq_len - 1)).unsqueeze(0).unsqueeze(0).to(self.args.device)
+                        outputs, prev_step_info = model(
+                            sub_vol, past_traj_pos, prev_step_info, norm_step)
                         self.map_old_to_new_indices(pred_tree,
                                                     curr_step_batch,
                                                     node_finished_branches_batch,
@@ -907,14 +1010,17 @@ class TrexplorerSuper:
                                                     node_perma_finished_branches_batch,
                                                     prev_step_info)
 
-                        query_classes_batch, query_radii_batch, query_positions_batch = self.get_classes_radii_positions(outputs)
+                        query_classes_batch, query_radii_batch, query_positions_batch = self.get_classes_radii_positions(
+                            outputs)
                         filter_class_ids = torch.tensor([self.args.class_dict[key]
                                                          for key in classes_to_filter]).to(query_classes_batch.device)
-                        query_classes_batch_filtered = torch.logical_not(torch.isin(query_classes_batch, filter_class_ids))
+                        query_classes_batch_filtered = torch.logical_not(
+                            torch.isin(query_classes_batch, filter_class_ids))
                         selected_queries_batch = [query_classes_batch_filtered[i].nonzero().flatten().tolist()
                                                   for i in range(query_classes_batch_filtered.shape[0])]
 
-                        allocated_queries = torch.nonzero(~outputs['query_mask'], as_tuple=True)
+                        allocated_queries = torch.nonzero(
+                            ~outputs['query_mask'], as_tuple=True)
                         for sq_i, selected_queries in enumerate(selected_queries_batch):
                             sample_allocated_queries = allocated_queries[1][allocated_queries[0] == sq_i]
                             selected_queries_batch[sq_i] = [query for query in selected_queries
@@ -944,7 +1050,8 @@ class TrexplorerSuper:
 
                             if previous_selected_queries == [-1]:
                                 if len(selected_queries) == 1:
-                                    point_hidden_state = prev_step_info['hs_without_norm'][sq_i, selected_queries[0], :]
+                                    point_hidden_state = prev_step_info['hs_without_norm'][sq_i,
+                                                                                           selected_queries[0], :]
                                     self.add_cont_branch_point_beg(selected_queries, curr_step, pred_tree, curr_node_root_pos,
                                                                    query_positions, query_radii, level, step, next_step,
                                                                    node_perma_finished_branches, query_classes, perma_end_classes,
@@ -975,18 +1082,21 @@ class TrexplorerSuper:
                                                                        query_classes, point_hidden_state)
 
                             curr_step = next_step
-                            indices = self.get_updated_indices_nx(indices, curr_step, pred_tree)
+                            indices = self.get_updated_indices_nx(
+                                indices, curr_step, pred_tree)
                             prev_step_info['indices'][sq_i] = indices[0]
                             curr_step_batch[sq_i] = curr_step
 
-                    next_step = [element for sublist in curr_step_batch for element in sublist]
+                    next_step = [
+                        element for sublist in curr_step_batch for element in sublist]
                     next_level += next_step
 
                 for node in next_level:
                     node_info = self.get_node(node, pred_tree)
                     node_pos = node_info['position']
                     node_info['query_index'] = -1
-                    node_info['rel_pos'] = np.array(node_pos) - np.array(node_pos).astype(int)
+                    node_info['rel_pos'] = np.array(
+                        node_pos) - np.array(node_pos).astype(int)
 
                 curr_level = next_level
                 if len(curr_level) == 0:
@@ -1004,13 +1114,16 @@ class TrexplorerSuper:
         all_preds = []
         all_targets = []
         elapsed_time = []
-        classes_to_filter = ['background', 'pad'] if self.args.pad_class else ['background']
+        classes_to_filter = ['background',
+                             'pad'] if self.args.pad_class else ['background']
         level = 0
-        perma_end_classes = [self.args.class_dict['bifurcation'], self.args.class_dict['end']]
+        perma_end_classes = [
+            self.args.class_dict['bifurcation'], self.args.class_dict['end']]
 
         for i, batch in tqdm(enumerate(data_loader), desc="Batch", leave=False, total=len(data_loader)):
             start = time.time()
-            sample_imgs, sample_past_trs, targets = (batch["image"], batch["past_tr"], batch["label"])
+            sample_imgs, sample_past_trs, targets = (
+                batch["image"], batch["past_tr"], batch["label"])
             if self.args.mask:
                 masks = batch["mask"]
             if sample_imgs.device != self.args.device:
@@ -1036,12 +1149,16 @@ class TrexplorerSuper:
             curr_node_root_pos_batch = [torch.tensor(self.get_node('0-0', pred_tree)['position'],
                                                      dtype=int).to(self.args.device) for pred_tree in pred_tree_batch]
             node_finished_branches_batch = [[] for i in range(len(node_batch))]
-            finished_branches_end_nodes_batch = [[] for i in range(len(node_batch))]
-            node_perma_finished_branches_batch = [[] for i in range(len(node_batch))]
+            finished_branches_end_nodes_batch = [
+                [] for i in range(len(node_batch))]
+            node_perma_finished_branches_batch = [
+                [] for i in range(len(node_batch))]
             for s_i, step in enumerate(range(1, self.args.seq_len)):
                 next_step_batch = [[] for i in range(len(node_batch))]
-                norm_step = torch.tensor((step - 1) / (self.args.seq_len - 1)).unsqueeze(0).unsqueeze(0).to(self.args.device)
-                outputs, prev_step_info = model(sub_vol, past_traj_pos, prev_step_info, norm_step)
+                norm_step = torch.tensor(
+                    (step - 1) / (self.args.seq_len - 1)).unsqueeze(0).unsqueeze(0).to(self.args.device)
+                outputs, prev_step_info = model(
+                    sub_vol, past_traj_pos, prev_step_info, norm_step)
                 self.map_old_to_new_indices_sv(pred_tree_batch,
                                                curr_step_batch,
                                                node_finished_branches_batch,
@@ -1049,13 +1166,17 @@ class TrexplorerSuper:
                                                node_perma_finished_branches_batch,
                                                prev_step_info)
 
-                query_classes_batch, query_radii_batch, query_positions_batch = self.get_classes_radii_positions(outputs)
-                filter_class_ids = torch.tensor([self.args.class_dict[key] for key in classes_to_filter]).to(query_classes_batch.device)
-                query_classes_batch_filtered = torch.logical_not(torch.isin(query_classes_batch, filter_class_ids))
+                query_classes_batch, query_radii_batch, query_positions_batch = self.get_classes_radii_positions(
+                    outputs)
+                filter_class_ids = torch.tensor(
+                    [self.args.class_dict[key] for key in classes_to_filter]).to(query_classes_batch.device)
+                query_classes_batch_filtered = torch.logical_not(
+                    torch.isin(query_classes_batch, filter_class_ids))
                 selected_queries_batch = [query_classes_batch_filtered[i].nonzero().flatten().tolist()
                                           for i in range(query_classes_batch_filtered.shape[0])]
 
-                allocated_queries = torch.nonzero(~outputs['query_mask'], as_tuple=True)
+                allocated_queries = torch.nonzero(
+                    ~outputs['query_mask'], as_tuple=True)
                 for sq_i, selected_queries in enumerate(selected_queries_batch):
                     sample_allocated_queries = allocated_queries[1][allocated_queries[0] == sq_i]
                     selected_queries_batch[sq_i] = [query for query in selected_queries
@@ -1112,7 +1233,8 @@ class TrexplorerSuper:
                                                                perma_end_classes, query_classes, selected_queries)
 
                     curr_step = next_step
-                    indices = self.get_updated_indices_nx(indices, curr_step, pred_tree)
+                    indices = self.get_updated_indices_nx(
+                        indices, curr_step, pred_tree)
                     prev_step_info['indices'][sq_i] = indices[0]
                     curr_step_batch[sq_i] = curr_step
 
@@ -1121,7 +1243,7 @@ class TrexplorerSuper:
             elapsed_time += [elp_time for _ in range(len(targets))]
             all_preds += pred_tree_batch
             for sam_i in range(len(targets)):
-                all_targets.append(targets[sam_i]['selected_node'])
+                all_targets.append(targets[sam_i]['networkx'])  # Change name
                 all_samples.append(sample_imgs[sam_i].cpu().detach())
                 all_samples_ids.append(targets[sam_i]['index'])
                 if self.args.mask:

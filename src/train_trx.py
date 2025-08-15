@@ -45,6 +45,7 @@ def fix_seed(seed):
 
 
 def build_dataloaders_vtl(args):
+
     data_loader_train = None
     data_loader_val = None
     data_loader_val_sv = None
@@ -72,7 +73,8 @@ def build_dataloaders_vtl(args):
 
 def create_optim_and_lr_sched(args, param_dicts, data_loader, model, checkpoint):
     # create the optimizer and lr scheduler
-    optimizer = torch.optim.AdamW(param_dicts, lr=args.lr, weight_decay=args.weight_decay)
+    optimizer = torch.optim.AdamW(
+        param_dicts, lr=args.lr, weight_decay=args.weight_decay)
     lr_scheduler = utils.get_lr_scheduler(args, optimizer, len(data_loader))
     # load optimizer and lr scheduler state dict if provided
     if 'optimizer' in checkpoint:
@@ -94,7 +96,8 @@ def run_evaluation(args, engine_trx, model, data_loader_val, data_loader_val_sv,
         for sample in test_sample_list:
             preds, targets, sample_ids, samples, masks, elapsed_time = engine_trx.evaluate_sinsam(model,
                                                                                                   sample)
-            stats_reduced = get_score_nx_single(preds, targets, elapsed_time, args.distributed)
+            stats_reduced = get_score_nx_single(
+                preds, targets, elapsed_time, args.distributed)
 
             # Save results
             pred_dict = {'preds': preds, 'targets': targets, 'target_ids': sample_ids,
@@ -111,7 +114,8 @@ def run_evaluation(args, engine_trx, model, data_loader_val, data_loader_val_sv,
     if args.sub_volume_eval:
         preds, targets, sample_ids, samples, masks, elapsed_time = engine_trx.evaluate_sv(model,
                                                                                           data_loader_val_sv)
-        stats_reduced_sv = get_score_nx_single(preds, targets, elapsed_time, args.distributed)
+        stats_reduced_sv = get_score_nx_single(
+            preds, targets, elapsed_time, args.distributed)
         pred_dict = {'preds': preds, 'targets': targets, 'samples': samples,
                      'masks': masks, 'elapsed_time': elapsed_time, 'stats_reduced': stats_reduced_sv}
 
@@ -124,7 +128,8 @@ def run_evaluation(args, engine_trx, model, data_loader_val, data_loader_val_sv,
         args.batch_size_per_sample = args.batch_size
         preds, targets, sample_ids, samples, masks, elapsed_time = engine_trx.evaluate_val(model,
                                                                                            data_loader_val)
-        stats_reduced = get_score_nx_single(preds, targets, elapsed_time, args.distributed)
+        stats_reduced = get_score_nx_single(
+            preds, targets, elapsed_time, args.distributed)
 
         # Save results
         pred_dict = {'preds': preds, 'targets': targets, 'target_ids': sample_ids,
@@ -143,7 +148,8 @@ def print_log_training_metrics(logger, epoch, metrics, st):
     et = time.time()
     elapsed_time = et - st
     if utils.get_rank() == 0:
-        logger.info(f"Epoch: {epoch} \t | \t loss: {metrics['scaled_losses']} \t\t | \t time taken: {elapsed_time}")
+        logger.info(
+            f"Epoch: {epoch} \t | \t loss: {metrics['scaled_losses']} \t\t | \t time taken: {elapsed_time}")
 
 
 def clear_memory_custom(args):
@@ -155,6 +161,7 @@ def clear_memory_custom(args):
 
 
 def train(args: Namespace) -> None:
+
     args = reload_args(args)
 
     # Configure logging to save both to console and a log file
@@ -199,12 +206,14 @@ def train(args: Namespace) -> None:
         model_without_ddp.load_state_dict(checkpoint['model'])
 
     param_dicts = [
-        {"params": [p for p in model_without_ddp.parameters() if p.requires_grad], "lr": args.lr}
+        {"params": [p for p in model_without_ddp.parameters()
+                    if p.requires_grad], "lr": args.lr}
     ]
 
     # build dataloaders
     if not len(args.test_sample):
-        data_loader_train, data_loader_val, data_loader_val_sv = build_dataloaders_vtl(args)
+        data_loader_train, data_loader_val, data_loader_val_sv = build_dataloaders_vtl(
+            args)
     else:
         data_loader_train, data_loader_val, data_loader_val_sv = None, None, None
 
@@ -230,7 +239,8 @@ def train(args: Namespace) -> None:
     # run evaluation if eval_only is set and exit
     if args.eval_only:
         args.checkpoint_epoch = checkpoint['epoch']
-        run_evaluation(args, engine_trx, model, data_loader_val, data_loader_val_sv, logger)
+        run_evaluation(args, engine_trx, model, data_loader_val,
+                       data_loader_val_sv, logger)
         return
 
     if utils.get_rank() == 0:
@@ -259,7 +269,8 @@ def train(args: Namespace) -> None:
                 checkpoint_paths = [output_dir / 'checkpoint.pth']
 
                 if args.save_model_interval and not epoch % args.save_model_interval:
-                    checkpoint_paths.append(output_dir / f"checkpoint_epoch_{epoch}.pth")
+                    checkpoint_paths.append(
+                        output_dir / f"checkpoint_epoch_{epoch}.pth")
 
                 for checkpoint_path in checkpoint_paths:
                     save_dict = {
@@ -275,26 +286,30 @@ def train(args: Namespace) -> None:
                 or epoch == (args.epochs - 1) and args.val_interval_sv):
             preds, targets, sample_ids, samples, masks, elapsed_time = engine_trx.evaluate_sv(model,
                                                                                               data_loader_val_sv)
-            stats_reduced_sv = get_score_nx_single(preds, targets, elapsed_time, args.distributed)
+            stats_reduced_sv = get_score_nx_single(
+                preds, targets, elapsed_time, args.distributed)
 
             if utils.get_rank() == 0:
                 logger.info("Sub-volume Eval:")
-                stats_message = eval_utils.get_stats_message(stats_reduced_sv, averages_only=True)
+                stats_message = eval_utils.get_stats_message(
+                    stats_reduced_sv, averages_only=True)
                 logger.info(stats_message)
 
             # clear memory
             clear_memory_custom(args)
 
-        if args.volume_eval  and (not epoch % args.val_interval) or epoch == (args.epochs - 1):
+        if args.volume_eval and (not epoch % args.val_interval) or epoch == (args.epochs - 1):
             if not epoch:
                 args.batch_size_per_sample = args.batch_size
-                logger.info("sub_vol batch_size_per_sample: ", args.batch_size_per_sample)
+                logger.info(
+                    f"sub_vol batch_size_per_sample: {args.batch_size_per_sample}")
 
             preds, targets, sample_ids, samples, masks, elapsed_time = engine_trx.evaluate_val(model,
                                                                                                data_loader_val)
 
             # Compute Acc, Recall and F1
-            stats_reduced = get_score_nx_single(preds, targets, elapsed_time, args.distributed)
+            stats_reduced = get_score_nx_single(
+                preds, targets, elapsed_time, args.distributed)
 
             # Save results
             pred_dict = {'preds': preds, 'targets': targets, 'target_ids': sample_ids,
@@ -303,7 +318,8 @@ def train(args: Namespace) -> None:
 
             if utils.get_rank() == 0:
                 logger.info("Full Volume Eval:")
-                stats_message = eval_utils.get_stats_message(stats_reduced, averages_only=False)
+                stats_message = eval_utils.get_stats_message(
+                    stats_reduced, averages_only=False)
                 logger.info(stats_message)
 
                 if stats_reduced['avg_scores'][5] > best_f1_nd_dist:
@@ -317,7 +333,8 @@ def train(args: Namespace) -> None:
             checkpoint_paths = []
             if args.volume_eval:
                 if new_best_nd:
-                    checkpoint_paths += [output_dir / f"checkpoint_best_f1_nd.pth"]
+                    checkpoint_paths += [
+                        output_dir / "checkpoint_best_f1_nd.pth"]
                     new_best_nd = False
 
             for checkpoint_path in checkpoint_paths:
@@ -340,6 +357,7 @@ def load_config(_config, _run):
 
 
 if __name__ == '__main__':
+
     config = ex.run_commandline().config
     args = nested_dict_to_namespace(config)
     train(args)

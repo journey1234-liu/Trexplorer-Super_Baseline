@@ -1,6 +1,7 @@
 .nfs*
 *.ipynb
 *.pyc
+*.log
 .dumbo.json
 .DS_Store
 .*.swp

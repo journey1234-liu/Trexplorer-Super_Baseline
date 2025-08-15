@@ -60,7 +60,7 @@ class SwinDETR(nn.Module):
                                   self.num_past_tr_tokens * self.hidden_dim,
                                   self.num_past_tr_tokens * self.hidden_dim, 3)
         self.step_embed = nn.Linear(1, self.hidden_dim)
-        self.num_extra_tokens += 1
+        # self.num_extra_tokens += 1
         self.num_extra_tokens = 4
 
         self.bifur_offset_embed = nn.Embedding(num_bifur_queries, self.hidden_dim)
@@ -328,6 +328,7 @@ class SetCriterion(nn.Module):
         self.losses = losses
         self.class_dict = class_dict
         self.num_bifur_queries = num_bifur_queries
+        self.focal_loss = True  # BUG: Missing focal_loss
         self.focal_weights = torch.tensor(custom_focal_weights_value)[None, None, :].to('cuda')
 
     def loss_labels_focal(self, outputs, targets, indices, num_vessels, log=True):

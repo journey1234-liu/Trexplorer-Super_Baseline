@@ -35,7 +35,8 @@ def build_model(args):
                    'loss_radius': args.rad_loss_coef, }
     aux_weight_dict = {}
     for i in range(args.dec_layers - 1):
-        aux_weight_dict.update({k + f'_{i}': v for k, v in weight_dict.items()})
+        aux_weight_dict.update(
+            {k + f'_{i}': v for k, v in weight_dict.items()})
     weight_dict.update(aux_weight_dict)
 
     losses = ['labels', 'direction', 'radius', 'cardinality']
