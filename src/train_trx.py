@@ -13,7 +13,7 @@ import monai
 from monai.data import ThreadDataLoader, set_track_meta
 from trxsuper.engine_trx import TrexplorerSuper
 import trxsuper.util.eval_utils as eval_utils
-from trxsuper.util.eval_utils import get_score_nx_single
+from trxsuper.util.eval_utils import get_score_nx_single, get_score_nx
 import trxsuper.util.misc as utils
 import trxsuper.datasets.cache_dataset_vtl as cd_vtl
 import trxsuper.datasets.cache_dataset as cd
@@ -308,7 +308,7 @@ def train(args: Namespace) -> None:
                                                                                                data_loader_val)
 
             # Compute Acc, Recall and F1
-            stats_reduced = get_score_nx_single(
+            stats_reduced = get_score_nx(
                 preds, targets, elapsed_time, args.distributed)
 
             # Save results
@@ -319,7 +319,7 @@ def train(args: Namespace) -> None:
             if utils.get_rank() == 0:
                 logger.info("Full Volume Eval:")
                 stats_message = eval_utils.get_stats_message(
-                    stats_reduced, averages_only=False)
+                    stats_reduced, averages_only=True)
                 logger.info(stats_message)
 
                 if stats_reduced['avg_scores'][5] > best_f1_nd_dist:

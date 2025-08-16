@@ -56,7 +56,7 @@ dist_url: env:// # url used to set up distributed training
 
 # Swin DETR
 num_queries: 50
-num_bifur_queries: 25
+num_bifur_queries: 10  # Modify according to tree structure
 seq_len: 10
 sub_vol_size: 32
 num_prev_pos: 5
@@ -74,16 +74,16 @@ take_in_between_level: false  # Added unused Swin UNETR configuration
 # LR scheduler
 lr: 0.0001
 min_lr_mltp:  0.1 # minimum learning rate multiplier
-epochs: 2
+epochs: 20000
 weight_decay: 0.0001
 
 # Validation
 volume_eval: true
-sub_volume_eval: true
-val_interval_sv: 1
-val_interval: 1
+sub_volume_eval: false
+val_interval_sv: 2000
+val_interval: 2000
 save_checkpoint: 10
-save_model_interval: 2000
+save_model_interval: 100
 eval_limit_levels: true
 max_inference_levels: 50
 eval_limit_nodes_per_level: true
