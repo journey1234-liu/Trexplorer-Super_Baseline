@@ -1,9 +1,15 @@
 amp: true
 batch_size: 4
+batch_size_per_sample: 4
 batch_size_val: 1
 bifur_prob: 0.2
 cache_num: 16
 cache_rate_train: 1.0
+class_dict:
+  background: 3
+  bifurcation: 2
+  end: 0
+  intermediate: 1
 clip_max_norm: 0.1
 cls_loss_coef: 1.0
 custom_focal_weights_value:
@@ -30,15 +36,15 @@ end_prob: 0.2
 epochs: 20000
 eval_limit_levels: true
 eval_limit_nodes_per_level: true
-eval_only: false
+eval_only: true
 eval_perma_finish_end_bifur: true
 focus_vol_size: 16
 gc_level: 1
 hidden_dim: 96
 lr: 0.0001
-mask: false
-max_inference_levels: 50
-max_nodes_per_level: 500
+mask: true
+max_inference_levels: 500
+max_nodes_per_level: 100
 mem_vol_ds: 2
 min_lr_mltp: 0.1
 n_workers_train: 2
@@ -59,7 +65,7 @@ patch_size: 2
 pre_norm: false
 rad_loss_coef: 1.0
 replace_rate: 0.125
-resume: ''
+resume: models/test_ASOCA/checkpoint_epoch_1000.pth
 root_prob: 0.1
 save_checkpoint: 10
 save_model_interval: 100

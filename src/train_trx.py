@@ -3,6 +3,7 @@ import os
 import gc
 import random
 import time
+import pickle
 from argparse import Namespace
 from pathlib import Path
 import numpy as np
@@ -132,13 +133,16 @@ def run_evaluation(args, engine_trx, model, data_loader_val, data_loader_val_sv,
             preds, targets, elapsed_time, args.distributed)
 
         # Save results
-        pred_dict = {'preds': preds, 'targets': targets, 'target_ids': sample_ids,
-                     'masks': masks, 'elapsed_time': elapsed_time, 'stats_reduced': stats_reduced}
+        # pred_dict = {'preds': preds, 'targets': targets, 'target_ids': sample_ids,
+        #              'masks': masks, 'elapsed_time': elapsed_time, 'stats_reduced': stats_reduced}
+        pred_dict = {'preds': preds, 'target_ids': sample_ids, }
 
-        torch.save(pred_dict, (resume_dir / 'pred_dict.pkl'))
+        # torch.save(pred_dict, (resume_dir / 'pred_dict.pkl'))
+        with open(f"{resume_dir}/pred_dict.pkl", "wb") as f:
+            pickle.dump(pred_dict, f)
 
-        message = eval_utils.get_stats_message(stats_reduced)
-        logger.info(message)
+        # message = eval_utils.get_stats_message(stats_reduced, averages_only=True)
+        # logger.info(message)
 
         return
 

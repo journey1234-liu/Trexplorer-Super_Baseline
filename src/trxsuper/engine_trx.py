@@ -253,8 +253,12 @@ class TrexplorerSuper:
         """
         Get the continuing node
         """
-        branch_id = int(step_node.split("-")[0])
-        point_id = int(step_node.split("-")[1]) + 1
+        if isinstance(step_node, str):
+            branch_id = int(step_node.split("-")[0])
+            point_id = int(step_node.split("-")[1]) + 1
+        else:
+            branch_id = int(step_node)
+            point_id = 1
         query_index_t = torch.tensor(query_index).to(query_positions.device)
         rel_pos = query_positions.index_select(1, query_index_t).squeeze()
         radius = query_radii.index_select(1, query_index_t).squeeze()
@@ -675,7 +679,7 @@ class TrexplorerSuper:
             samples, samples_min, targets, masks = (
                 batch["image"], batch["image_min"], batch["label"], batch["mask"])
             if self.args.eval_only:
-                self.logger.info(f'Sample: {targets[0]["index"]:d}')
+                self.logger.info(f'Sample: {targets[0]["index"]}')
             for tree_id in range(len(targets[0]['networkx'])):
                 st = time.time()
                 self.log_progress(tree_id)
