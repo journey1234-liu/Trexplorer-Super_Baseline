@@ -45,9 +45,11 @@ def all_gather(data):
     # gathering tensors of different shapes
     tensor_list = []
     for _ in size_list:
-        tensor_list.append(torch.empty((max_size,), dtype=torch.uint8, device="cuda"))
+        tensor_list.append(torch.empty(
+            (max_size,), dtype=torch.uint8, device="cuda"))
     if local_size != max_size:
-        padding = torch.empty(size=(max_size - local_size,), dtype=torch.uint8, device="cuda")
+        padding = torch.empty(size=(max_size - local_size,),
+                              dtype=torch.uint8, device="cuda")
         tensor = torch.cat((tensor, padding), dim=0)
     dist.all_gather(tensor_list, tensor)
 
@@ -110,13 +112,14 @@ def gather_stats(input_dict):
             indices.append(index)
             values.append(input_dict[k].flatten())
         values = torch.cat(values, dim=0)
-        values_list = [torch.empty(values.shape).to('cuda') for _ in range(world_size)]
+        values_list = [torch.empty(values.shape).to('cuda')
+                       for _ in range(world_size)]
         dist.all_gather(values_list, values)
         gathered_dict = {}
         for i, name in enumerate(names):
             value = []
             for j in range(world_size):
-                value.append(values_list[j][indices[i]: indices[i + 1]].reshape(shapes[i]))
+                value.append(values_list[j][indices[i]                             : indices[i + 1]].reshape(shapes[i]))
             # interleave the values to keep the order since the samples are divided between the gpus as interleaved [1,3,..] and [2,4,..]
             stacked = torch.stack(value, dim=1)
             interleaved = torch.flatten(stacked, start_dim=0, end_dim=1)
@@ -132,7 +135,8 @@ def gather_list(input_list):
         return input_list
     with torch.no_grad():
         values = torch.as_tensor(input_list).to('cuda')
-        values_list = [torch.empty(values.shape).to('cuda') for _ in range(world_size)]
+        values_list = [torch.empty(values.shape).to('cuda')
+                       for _ in range(world_size)]
         dist.all_gather(values_list, values)
 
         stacked = torch.stack(values_list, dim=1)
@@ -225,7 +229,8 @@ def init_distributed_mode(args):
 
     torch.cuda.set_device(args.gpu)
     args.dist_backend = 'nccl'
-    print(f'| distributed init (rank {args.rank}): {args.dist_url}', flush=True)
+    print(
+        f'| distributed init (rank {args.rank}): {args.dist_url}', flush=True)
     torch.distributed.init_process_group(
         backend=args.dist_backend, init_method=args.dist_url,
         world_size=args.world_size, rank=args.rank,
@@ -256,7 +261,8 @@ def sigmoid_focal_loss(inputs, targets, query_mask=None, weights=None):
     Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
     """
     prob = inputs.sigmoid()
-    ce_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
+    ce_loss = F.binary_cross_entropy_with_logits(
+        inputs, targets, reduction="none")
     p_t = prob * targets + (1 - prob) * (1 - targets)
     gamma = 2.0
     loss = ce_loss * ((1 - p_t) ** gamma)
@@ -264,7 +270,8 @@ def sigmoid_focal_loss(inputs, targets, query_mask=None, weights=None):
 
     if query_mask is not None:
         loss = torch.stack([ls[m].mean(0) if m.any() else
-                            torch.zeros(loss.shape[2]).to(loss.device) + 0.0 * ls.sum()
+                            torch.zeros(loss.shape[2]).to(
+                                loss.device) + 0.0 * ls.sum()
                             for ls, m in zip(loss, query_mask)])
         loss = loss.mean(0)
         loss = loss.sum()
@@ -293,8 +300,10 @@ def nested_dict_to_device(dictionary, device):
 
 
 def restore_config(args):
-    checkpoint = torch.load(args.resume, map_location='cpu')
+    checkpoint = torch.load(
+        args.resume, map_location='cpu', weights_only=False)
     args_n = checkpoint['args']
+    args_n.resume = args.resume
 
     # add eval args
     if args.eval_only:
