@@ -24,7 +24,7 @@ custom_focal_weights_value: [0.33300486, 0.32274583, 0.33308958, 0.01115972]
 clip_max_norm: 0.1 # gradient clipping max norm
 
 # Dataset & Dataloader
-data_dir: data/ASOCA
+data_dir: data/Aorta24
 cache_rate_train: 1.0 # percentage of cached data in total
 n_workers_train: 2
 batch_size: 4
@@ -42,7 +42,7 @@ num_replace_workers: 2
 
 # Miscellaneous
 resume: ''
-output_dir: models/test_ASOCA
+output_dir: models/test_Aorta24
 device: cuda:0
 seed: 37
 amp: true
@@ -58,7 +58,7 @@ dist_url: env:// # url used to set up distributed training
 num_queries: 50
 num_bifur_queries: 10  # Modify according to tree structure
 seq_len: 10
-sub_vol_size: 32
+sub_vol_size: 64
 num_prev_pos: 5
 
 # Swin UNETR
@@ -78,7 +78,7 @@ epochs: 20000
 weight_decay: 0.0001
 
 # Validation
-volume_eval: true
+volume_eval: false  # For faster training
 sub_volume_eval: false
 val_interval_sv: 2000
 val_interval: 2000
@@ -92,8 +92,8 @@ test_sample: [] # list of 'sample_id-tree_id'
 
 # window input intensity values (clamp)
 window_input: true
-window_max: 500
-window_min: -100
+window_max: 1400
+window_min: -400
 
 # Super Trajectory Training
 # Variable training trajectory length
@@ -101,7 +101,7 @@ var_traj_train_len: true
 traj_train_len: 6
 
 # Focal Cross Attention
-focus_vol_size: 16  # According to transformer definition, should be int < sub_vol_size
+focus_vol_size: 32  # According to transformer definition, should be int < sub_vol_size
 
 # Garbage collection
 gc_level: 1  # 1 or 2, see src/train_trx.py line 156

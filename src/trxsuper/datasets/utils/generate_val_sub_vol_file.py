@@ -105,7 +105,7 @@ if __name__ == '__main__':
     seq_len = 10
     seq_range_half = False
 
-    dataset = 'ASOCA'  # 'atm22', 'parse2022', 'syntrx'
+    dataset = 'Aorta24'  # 'atm22', 'parse2022', 'syntrx'
     annot_dir = f'data/{dataset}/annots_val_sub_vol'
     out_dir = f'./data/{dataset}/'
     save_path = out_dir + 'annots_val_sub_vol.pickle'

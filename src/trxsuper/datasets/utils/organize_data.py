@@ -5,11 +5,11 @@ import shutil
 from tqdm import tqdm
 
 if __name__ == '__main__':
-    dataset = "ASOCA"  # "atm22", "parse2022", "syntrx"
-    data_dir = "/home/lyyu/data/ASOCA"
-    cl_dir = "data/ASOCA"  # Path to the dataset
-    dst_dir = "data/ASOCA"  # Destination directory for the organized dataset
-    splits = "/home/lyyu/data/ASOCA/splits_final.json"
+    dataset = "Aorta24"  # "atm22", "parse2022", "syntrx"
+    data_dir = "/home/lyyu/data/Aorta24"
+    cl_dir = "data/Aorta24"  # Path to the dataset
+    dst_dir = "data/Aorta24"  # Destination directory for the organized dataset
+    splits = "/home/lyyu/data/Aorta24/splits_final.json"
     paths_dict = {
         'annots_extra': os.path.join(dst_dir, "annots_extra"),
         'annotst_sep_test': os.path.join(dst_dir, "annots_sep_test"),
@@ -137,42 +137,42 @@ if __name__ == '__main__':
 
     # move the first num_train_samples samples to the training set
     for img_file, mask_file, annot_file in tqdm(zip(train_img_files, train_mask_files, train_annot_files)):
-        idx = img_file.split("/")[-1].removesuffix(".nrrd")
+        idx = img_file.split("/")[-1].removesuffix(".nii.gz")
         shutil.copy(img_file, os.path.join(
-            paths_dict['images_train'], idx + '.nrrd'))
+            paths_dict['images_train'], idx + '.nii.gz'))
         shutil.copy(mask_file, os.path.join(
-            paths_dict['masks_train'], idx + '.nrrd'))
+            paths_dict['masks_train'], idx + '.nii.gz'))
         shutil.copy(annot_file, os.path.join(
             paths_dict['annotst_train'], idx + '.pickle'))
 
     # move the next num_val_samples samples to the validation set
     for img_file, mask_file, annot_file in tqdm(zip(val_img_files, val_mask_files, val_annot_files)):
-        idx = img_file.split("/")[-1].removesuffix(".nrrd")
+        idx = img_file.split("/")[-1].removesuffix(".nii.gz")
         shutil.copy(img_file, os.path.join(
-            paths_dict['images_val'], idx + '.nrrd'))
+            paths_dict['images_val'], idx + '.nii.gz'))
         shutil.copy(mask_file, os.path.join(
-            paths_dict['masks_val'], idx + '.nrrd'))
+            paths_dict['masks_val'], idx + '.nii.gz'))
         shutil.copy(annot_file, os.path.join(
             paths_dict['annotst_val'], idx + '.pickle'))
         shutil.copy(img_file, os.path.join(
-            paths_dict['images_val_sub_vol'], idx + '.nrrd'))
+            paths_dict['images_val_sub_vol'], idx + '.nii.gz'))
         shutil.copy(mask_file, os.path.join(
-            paths_dict['masks_val_sub_vol'], idx + '.nrrd'))
+            paths_dict['masks_val_sub_vol'], idx + '.nii.gz'))
         shutil.copy(annot_file, os.path.join(
             paths_dict['annotst_val_sub_vol'], idx + '.pickle'))
 
     # move the next num_test_samples samples to the test set
     for img_file, mask_file, annot_file in tqdm(zip(test_img_files, test_mask_files, test_annot_files)):
-        idx = img_file.split("/")[-1].removesuffix(".nrrd")
+        idx = img_file.split("/")[-1].removesuffix(".nii.gz")
         shutil.copy(img_file, os.path.join(
-            paths_dict['images_test'], idx + '..nrrd'))
+            paths_dict['images_test'], idx + '..nii.gz'))
         shutil.copy(mask_file, os.path.join(
-            paths_dict['masks_test'], idx + '.nrrd'))
+            paths_dict['masks_test'], idx + '.nii.gz'))
         shutil.copy(annot_file, os.path.join(
             paths_dict['annotst_test'], idx + '.pickle'))
         shutil.copy(img_file, os.path.join(
-            paths_dict['images_sep_test'], idx + '-0.nrrd'))
+            paths_dict['images_sep_test'], idx + '-0.nii.gz'))
         shutil.copy(mask_file, os.path.join(
-            paths_dict['masks_sep_test'], idx + '-0.nrrd'))
+            paths_dict['masks_sep_test'], idx + '-0.nii.gz'))
         shutil.copy(annot_file, os.path.join(
             paths_dict['annotst_sep_test'], idx + '-0.pickle'))

@@ -418,8 +418,9 @@ def extract_full_trajectores(tree: Node):
         bifur_ids = [p for p in path_list if p in bifur_all]
         trajectories.append(dict(root_id=root_id, endpt_id=endpt_id,
                                  bifur_ids=bifur_ids, path=path_list))
+        if path_list[0] == "":
+            path_list.pop(0)
         traj_lens.append(len(path_list))
-        # print(path_list)
 
     traj_stats = dict(min=min(traj_lens), max=max(
         traj_lens), mean=np.mean(traj_lens))
@@ -430,7 +431,7 @@ def extract_full_trajectores(tree: Node):
 def process_model_file(model_file: str, save_path: str):
 
     idx = model_file.split("/")[-2]
-    sample_id = idx
+    sample_id = f"Aorta24_{idx}"
 
     # Convert the centerlines from model to networkx directed graphs
     graphs = convert_model_to_networkx(model_file)
@@ -485,7 +486,7 @@ def convert_model_to_bigtree(directory: str):
 
     model_files = glob("*/skeleton.vtk", root_dir=directory, recursive=True)
     model_files = [os.path.join(directory, file) for file in model_files]
-    dataset_name = "ASOCA"
+    dataset_name = "Aorta24"
     bigtree_path = os.path.join("data", dataset_name, "centerlines")
     os.makedirs(bigtree_path, exist_ok=True)
 
