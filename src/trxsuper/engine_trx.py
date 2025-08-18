@@ -13,6 +13,7 @@ from src.trxsuper.util import misc as utils
 from monai.transforms import (
     Compose,
     LoadImage,
+    NormalizeIntensity,
     ThresholdIntensity)
 from src.trxsuper.datasets.transforms import (
     CropAndPad,
@@ -711,7 +712,8 @@ class TrexplorerSuper:
                         starting_node_ids = []
                         for node in node_batch:
                             if isinstance(node, str):
-                                starting_node_ids.append(int(node.split("-")[0]))
+                                starting_node_ids.append(
+                                    int(node.split("-")[0]))
                             else:
                                 starting_node_ids.append(int(node))
                         # prev_step_info
@@ -911,11 +913,13 @@ class TrexplorerSuper:
                                         ThresholdIntensity(threshold=self.args.window_min,
                                                            above=True, cval=self.args.window_min)])
             samples = window_transform(samples)
-        norm = LoadImageCropsAndTreesd.normalize(self.args.norm_mode)
+        # norm = LoadImageCropsAndTreesd.normalize(self.args.norm_mode)
+        norm = NormalizeIntensity()  # BUG: No attribute normalize
         samples = norm(samples)
         samples = samples.unsqueeze(0).unsqueeze(0).to(self.args.device)
-        compute_min = ComputeImageMin(self.args.norm_mode)
-        samples_min = compute_min(samples).to(self.args.device)
+        # compute_min = ComputeImageMin(self.args.norm_mode)
+        # samples_min = compute_min(samples).to(self.args.device)  # BUGGY
+        samples_min = torch.min(samples).to(self.args.device)
 
         # load the target and mask
         annot_reader = LoadAnnotPickle()
@@ -953,10 +957,18 @@ class TrexplorerSuper:
                     if not len(sub_vol_batch):
                         continue
 
+                    # BUG: Fix node id problems
+                    starting_node_ids = []
+                    for node in node_batch:
+                        if isinstance(node, str):
+                            starting_node_ids.append(int(node.split("-")[0]))
+                        else:
+                            starting_node_ids.append(int(node))
+
                     prev_step_info = {"first_step": True,
                                       "out": None,
                                       "bifur_list": None,
-                                      "starting_node_id": [int(node.split("-")[0]) for node in node_batch],
+                                      "starting_node_id": starting_node_ids,
                                       "global_id": global_branch_id,
                                       "node_type": "selected_node",
                                       "hidden_state_list": []}

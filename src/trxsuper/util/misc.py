@@ -303,7 +303,7 @@ def restore_config(args):
     checkpoint = torch.load(
         args.resume, map_location='cpu', weights_only=False)
     args_n = checkpoint['args']
-    args_n.resume = args.resume
+    # args_n.resume = args.resume
 
     # add eval args
     if args.eval_only:
@@ -315,6 +315,7 @@ def restore_config(args):
         args_n.mask = args.mask
         args_n.max_inference_levels = args.max_inference_levels
         args_n.max_nodes_per_level = args.max_nodes_per_level
+        args_n.test_sample = args.test_sample
 
     # add possible missing args
     for k in args.__dict__:

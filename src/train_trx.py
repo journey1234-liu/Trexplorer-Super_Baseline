@@ -101,13 +101,16 @@ def run_evaluation(args, engine_trx, model, data_loader_val, data_loader_val_sv,
                 preds, targets, elapsed_time, args.distributed)
 
             # Save results
-            pred_dict = {'preds': preds, 'targets': targets, 'target_ids': sample_ids,
-                         'elapsed_time': elapsed_time, 'stats_reduced': stats_reduced}
+            # pred_dict = {'preds': preds, 'targets': targets, 'target_ids': sample_ids,
+            #              'elapsed_time': elapsed_time, 'stats_reduced': stats_reduced}
+            pred_dict = {"preds": preds, 'target_ids': sample_ids, }
 
-            torch.save(pred_dict, (sav_dir / (sample + '.pkl')))
+            # torch.save(pred_dict, (sav_dir / (sample + '.pkl')))
+            with open(f"{sav_dir}/{sample_ids[0]}.pkl", "wb") as f:
+                pickle.dump(pred_dict, f)
 
-            message = eval_utils.get_stats_message(stats_reduced)
-            logger.info(message)
+            # message = eval_utils.get_stats_message(stats_reduced)
+            # logger.info(message)
         return
 
     resume_dir = Path(args.resume).parent
