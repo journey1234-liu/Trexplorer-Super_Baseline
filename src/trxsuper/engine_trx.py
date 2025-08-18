@@ -216,13 +216,21 @@ class TrexplorerSuper:
                                    step=-1)
         return node_batch
 
-    def get_global_pred_root_node_nx(self, pred_tree, target_tree):
+    def get_global_pred_root_node_nx(self, pred_tree, target_tree: nx.DiGraph):
         """
         Create a Node for the root point
         """
-        in_degrees = dict(target_tree.in_degree())
-        root_node_id = [node for node,
-                        in_degree in in_degrees.items() if in_degree == 0][0]
+        # Add support for max-radius seed selection
+        undirected = target_tree.to_undirected()
+        all_nodes = [n for n in undirected.nodes]
+        all_nodes.sort(key=lambda n: target_tree.nodes[n]["radius"], reverse=True)
+        root_node_id = all_nodes[0]
+        print("The radius of current root node: ",
+              target_tree.nodes[root_node_id]["radius"])
+        # Old version of seed selection often cause bad root.
+        # in_degrees = dict(target_tree.in_degree())
+        # root_node_id = [node for node,
+        #                 in_degree in in_degrees.items() if in_degree == 0][0]
         root_node_info = self.get_node(root_node_id, target_tree)
         root_out_degree = target_tree.out_degree(root_node_id)
 
