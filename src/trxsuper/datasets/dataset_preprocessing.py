@@ -215,7 +215,8 @@ def convert_model_to_networkx(model_file: str):
     nx.set_node_attributes(G, node_radii_dict, 'radius')
     for conn in conns:
         conn_roots = [r for r in roots if r in conn]
-        conn_roots.sort(key=lambda r: G0.nodes[r]["radius"], reverse=True)
+        conn_roots.sort(key=lambda r: G.nodes[r]["position"][-1], reverse=True)
+        print("Root node position: ", G.nodes[conn_roots[0]]["position"])
         forward_edges = list(nx.bfs_edges(G0, source=conn_roots[0]))
         forward_edge_radii = list(map(
             lambda t: np.mean([radii[t[0]], radii[t[1]]]), forward_edges))

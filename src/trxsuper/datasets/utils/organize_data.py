@@ -115,7 +115,7 @@ if __name__ == '__main__':
         train_mask_files = [os.path.join(
             data_dir, "labelsTr", case_id) for case_id in train_cases]
         train_annot_files = [os.path.join(
-            annot_dir, f"{case_id.split('.')[0]}.pickle") for case_id in train_cases]
+            annot_dir, f"{case_id.split('.')[0].removesuffix('_0000')}.pickle") for case_id in train_cases]
 
         val_cases = splits["val"]
         val_cases.sort()
@@ -124,7 +124,7 @@ if __name__ == '__main__':
         val_mask_files = [os.path.join(
             data_dir, "labelsTr", case_id) for case_id in val_cases]
         val_annot_files = [os.path.join(
-            annot_dir, f"{case_id.split('.')[0]}.pickle") for case_id in val_cases]
+            annot_dir, f"{case_id.split('.')[0].removesuffix('_0000')}.pickle") for case_id in val_cases]
 
         test_cases = splits["test"]
         test_cases.sort()
@@ -133,11 +133,11 @@ if __name__ == '__main__':
         test_mask_files = [os.path.join(
             data_dir, "labelsTr", case_id) for case_id in test_cases]
         test_annot_files = [os.path.join(
-            annot_dir, f"{case_id.split('.')[0]}.pickle") for case_id in test_cases]
+            annot_dir, f"{case_id.split('.')[0].removesuffix('_0000')}.pickle") for case_id in test_cases]
 
     # move the first num_train_samples samples to the training set
     for img_file, mask_file, annot_file in tqdm(zip(train_img_files, train_mask_files, train_annot_files)):
-        idx = img_file.split("/")[-1].removesuffix(".nii.gz")
+        idx = img_file.split("/")[-1].removesuffix("_0000.nii.gz")
         shutil.copy(img_file, os.path.join(
             paths_dict['images_train'], idx + '.nii.gz'))
         shutil.copy(mask_file, os.path.join(
@@ -147,7 +147,7 @@ if __name__ == '__main__':
 
     # move the next num_val_samples samples to the validation set
     for img_file, mask_file, annot_file in tqdm(zip(val_img_files, val_mask_files, val_annot_files)):
-        idx = img_file.split("/")[-1].removesuffix(".nii.gz")
+        idx = img_file.split("/")[-1].removesuffix("_0000.nii.gz")
         shutil.copy(img_file, os.path.join(
             paths_dict['images_val'], idx + '.nii.gz'))
         shutil.copy(mask_file, os.path.join(
@@ -165,7 +165,7 @@ if __name__ == '__main__':
     for img_file, mask_file, annot_file in tqdm(zip(test_img_files, test_mask_files, test_annot_files)):
         idx = img_file.split("/")[-1].removesuffix(".nii.gz")
         shutil.copy(img_file, os.path.join(
-            paths_dict['images_test'], idx + '..nii.gz'))
+            paths_dict['images_test'], idx + '_0000.nii.gz'))
         shutil.copy(mask_file, os.path.join(
             paths_dict['masks_test'], idx + '.nii.gz'))
         shutil.copy(annot_file, os.path.join(

@@ -72,9 +72,10 @@ class CropAndPad(Transform):
         """
 
         assert roi_center is not None and roi_size is not None and img_size is not None
-        img_size_t = convert_to_tensor(data=img_size, dtype=torch.int16, wrap_sequence=True, device="cuda")
-        roi_center_t = convert_to_tensor(data=roi_center, dtype=torch.int16, wrap_sequence=True, device="cuda")
-        roi_size_t = convert_to_tensor(data=roi_size, dtype=torch.int16, wrap_sequence=True, device="cuda")
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        img_size_t = convert_to_tensor(data=img_size, dtype=torch.int16, wrap_sequence=True, device=device)
+        roi_center_t = convert_to_tensor(data=roi_center, dtype=torch.int16, wrap_sequence=True, device=device)
+        roi_size_t = convert_to_tensor(data=roi_size, dtype=torch.int16, wrap_sequence=True, device=device)
         _zeros = torch.zeros_like(roi_center_t)
         half = (
             torch.divide(roi_size_t, 2, rounding_mode="floor")

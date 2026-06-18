@@ -1,9 +1,14 @@
 amp: true
 batch_size: 4
 batch_size_val: 1
-bifur_prob: 0.2
+bifur_prob: 0.3
 cache_num: 16
 cache_rate_train: 1.0
+class_dict:
+  background: 3
+  bifurcation: 2
+  end: 0
+  intermediate: 1
 clip_max_norm: 0.1
 cls_loss_coef: 1.0
 custom_focal_weights_value:
@@ -20,25 +25,25 @@ depths:
 - 2
 - 2
 determinism: true
-device: cuda:0
+device: cuda
 dim_feedforward: 2048
 dir_loss_coef: 1.0
 dist_url: env://
 distributed: false
 dropout: 0.1
-end_prob: 0.2
+end_prob: 0.3
 epochs: 20000
 eval_limit_levels: true
 eval_limit_nodes_per_level: true
-eval_only: false
+eval_only: true
 eval_perma_finish_end_bifur: true
 focus_vol_size: 32
 gc_level: 1
 hidden_dim: 96
 lr: 0.0001
 mask: false
-max_inference_levels: 50
-max_nodes_per_level: 500
+max_inference_levels: 500
+max_nodes_per_level: 100
 mem_vol_ds: 2
 min_lr_mltp: 0.1
 n_workers_train: 2
@@ -59,8 +64,8 @@ patch_size: 2
 pre_norm: false
 rad_loss_coef: 1.0
 replace_rate: 0.125
-resume: ''
-root_prob: 0.1
+resume: models/test_Aorta24/checkpoint_epoch_400.pth
+root_prob: 0.3
 save_checkpoint: 10
 save_model_interval: 100
 seed: 37
@@ -73,7 +78,8 @@ share_direc_embed_num: 6
 sub_vol_size: 64
 sub_volume_eval: false
 take_in_between_level: false
-test_sample: []
+test_sample:
+- Aorta24_028
 traj_train_len: 6
 unetr_dim: 24
 val_interval: 2000
@@ -82,7 +88,7 @@ var_traj_train_len: true
 volume_eval: false
 weight_decay: 0.0001
 window_input: true
-window_max: 1400
+window_max: 800
 window_min: -400
 window_size: 7
 world_size: 1

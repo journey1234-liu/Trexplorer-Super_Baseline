@@ -1,0 +1,10 @@
+# Dataset & Dataloader
+data_dir: data/CoW
+mask: false
+output_dir: models/test_CoW
+seed: 37
+
+# CoW CT intensity window. Matches the current CT defaults.
+window_input: true
+window_max: 500
+window_min: -100

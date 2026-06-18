@@ -117,9 +117,11 @@ def build_validation_sv_transforms(cfg):
     annots_dir = os.path.join(cfg.data_dir, 'annots_val_sub_vol')
     images_dir = os.path.join(cfg.data_dir, 'images_val_sub_vol')
     masks_dir = os.path.join(cfg.data_dir, 'masks_val_sub_vol')
-    image_paths = sorted(glob.glob(os.path.join(images_dir, "*.nii.gz")))
+    image_paths = sorted(glob.glob(os.path.join(
+        images_dir, "*.nii.gz")) + glob.glob(os.path.join(images_dir, "*.nrrd")))
     annot_paths = sorted(glob.glob(os.path.join(annots_dir, "*.pickle")))
-    mask_paths = sorted(glob.glob(os.path.join(masks_dir, "*.nii.gz")))
+    mask_paths = sorted(glob.glob(os.path.join(
+        masks_dir, "*.nii.gz")) + glob.glob(os.path.join(masks_dir, "*.nrrd")))
     paths = list(zip(image_paths, annot_paths, mask_paths))
     transforms = [LoadImageCropsAndTreesd(["label"], cfg.seq_len, cfg.num_prev_pos, cfg.sub_vol_size,
                                           cfg.class_dict, cfg.mask, paths, cfg.window_input, cfg.window_min, cfg.window_max)]
@@ -158,7 +160,7 @@ def build_validation_transforms(cfg):
 
 
 def build_training_datasets_dist(cfg, split, train_transform):
-    files = load_datalist(cfg, split)
+    files = load_datalist(cfg.data_dir, split)
     if is_main_process():
         print(f"Number of files in full {split} dataset: {len(files)}")
 
@@ -202,7 +204,7 @@ def build_training_datasets(cfg, split, transforms):
 
 
 def build_validation_datasets_dist(cfg, split, transforms):
-    files = load_datalist(cfg, split)
+    files = load_datalist(cfg.data_dir, split)
     if is_main_process():
         print(f"Number of files in full {split} dataset: {len(files)}")
 

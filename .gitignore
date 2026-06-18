@@ -25,3 +25,9 @@ src/trxsuper/models/ops/lib*
 src/trxsuper/models/ops/temp*
 /src/trxsuper/models/dino/ops3d/build*
 /src/trxsuper/models/dino/ops3d/dist*
+
+.claude/
+.codex/
+.agents/
+
+models/

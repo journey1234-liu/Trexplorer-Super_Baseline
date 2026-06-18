@@ -303,7 +303,7 @@ def restore_config(args):
     checkpoint = torch.load(
         args.resume, map_location='cpu', weights_only=False)
     args_n = checkpoint['args']
-    # args_n.resume = args.resume
+    args_n.resume = args.resume
 
     # add eval args
     if args.eval_only:

@@ -221,12 +221,21 @@ class TrexplorerSuper:
         Create a Node for the root point
         """
         # Add support for max-radius seed selection
+        # undirected = target_tree.to_undirected()
+        # all_nodes = [n for n in undirected.nodes]
+        # all_nodes.sort(
+        #     key=lambda n: target_tree.nodes[n]["radius"], reverse=True)
+        # root_node_id = all_nodes[0]
+        # print("The radius of current root node: ",
+        #       target_tree.nodes[root_node_id]["radius"])
+        # Add support for top-z seed selection
         undirected = target_tree.to_undirected()
-        all_nodes = [n for n in undirected.nodes]
-        all_nodes.sort(key=lambda n: target_tree.nodes[n]["radius"], reverse=True)
-        root_node_id = all_nodes[0]
-        print("The radius of current root node: ",
-              target_tree.nodes[root_node_id]["radius"])
+        root_nodes = [n for n in undirected.nodes if undirected.degree[n] == 1]
+        root_nodes.sort(
+            key=lambda n: target_tree.nodes[n]["position"][-1], reverse=True)
+        root_node_id = root_nodes[0]
+        print("The position of current root node: ",
+              target_tree.nodes[root_node_id]["position"])
         # Old version of seed selection often cause bad root.
         # in_degrees = dict(target_tree.in_degree())
         # root_node_id = [node for node,
@@ -611,7 +620,10 @@ class TrexplorerSuper:
                                  next_step, node_perma_finished_branches, query_classes,
                                  perma_end_classes, selected_queries, point_hidden_state=None):
         for query_index in continuing_branches:
-            node_index = previous_selected_queries.index(query_index)
+            try:
+                node_index = previous_selected_queries.index(query_index)
+            except Exception:
+                breakpoint()
             step_node = curr_step[node_index]
 
             # get the node for the next step of this continuing branch
@@ -1103,7 +1115,7 @@ class TrexplorerSuper:
                                                                        finished_branches_end_nodes, global_branch_id, query_positions,
                                                                        query_radii, curr_node_root_pos, level, step,
                                                                        next_step, node_perma_finished_branches, perma_end_classes,
-                                                                       query_classes, point_hidden_state)
+                                                                       query_classes, selected_queries, point_hidden_state)  # BUG: Missing selected_queries
 
                             curr_step = next_step
                             indices = self.get_updated_indices_nx(

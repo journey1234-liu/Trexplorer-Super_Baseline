@@ -31,9 +31,9 @@ batch_size: 4
 batch_size_val: 1
 mask: false
 determinism: true
-root_prob: 0.1
-bifur_prob: 0.2
-end_prob: 0.2
+root_prob: 0.3
+bifur_prob: 0.3
+end_prob: 0.3
 # SmartCacheDataset Params
 cache_num: 16
 replace_rate: 0.125
@@ -43,7 +43,7 @@ num_replace_workers: 2
 # Miscellaneous
 resume: ''
 output_dir: models/test_Aorta24
-device: cuda:0
+device: cuda
 seed: 37
 amp: true
 eval_only: false
@@ -92,7 +92,7 @@ test_sample: [] # list of 'sample_id-tree_id'
 
 # window input intensity values (clamp)
 window_input: true
-window_max: 1400
+window_max: 800
 window_min: -400
 
 # Super Trajectory Training

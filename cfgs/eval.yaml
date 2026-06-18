@@ -1,4 +1,4 @@
-resume: 'models/test_ASOCA/checkpoint_epoch_1000.pth' # Checkpoint path
+resume: 'models/test_Aorta24/checkpoint_epoch_400.pth' # Checkpoint path
 
 # EVALUATION
 eval_only: true
@@ -7,10 +7,10 @@ max_inference_levels: 500
 max_nodes_per_level: 100
 volume_eval: true
 sub_volume_eval: false
-test_sample: ["Diseased_8-0"] # list of 'sample_id-tree_id'
+test_sample: ["Aorta24_028"] # list of 'sample_id-tree_id'
 
 # Dataset
 # dataset: data/ASOCA
 
 # Dataloader
-mask: true
+mask: false

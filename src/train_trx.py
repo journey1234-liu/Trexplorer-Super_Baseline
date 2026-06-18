@@ -27,6 +27,7 @@ print("Current working directory: {0}".format(cwd))
 ex = sacred.Experiment('train', save_git_info=False)
 ex.add_config('./cfgs/train.yaml')
 ex.add_named_config('eval', './cfgs/eval.yaml')
+ex.add_named_config('train_cow', './cfgs/train_cow.yaml')
 
 
 def reload_args(args):
